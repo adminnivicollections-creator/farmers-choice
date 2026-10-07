@@ -1,0 +1,11 @@
+{
+  "name": "farmers-choice",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "db:up": "docker compose -f infra/docker/compose.yml up -d",
+    "db:down": "docker compose -f infra/docker/compose.yml down",
+    "api:dev": "npm -w @fc/api run dev",
+    "test": "npm -w @fc/api run test"
+  }
+}

@@ -1,0 +1,18 @@
+services:
+  db:
+    # postgis image = postgres + postgis + btree_gist, the two extensions the
+    # rental and proximity queries depend on.
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: fc
+      POSTGRES_PASSWORD: fc
+      POSTGRES_DB: farmers_choice
+    ports: ["5433:5432"]   # 5433 so it doesn't collide with a local postgres
+    volumes: ["fc_pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fc -d farmers_choice"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  fc_pgdata:

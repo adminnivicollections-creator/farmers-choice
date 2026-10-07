@@ -1,0 +1,381 @@
+// Farmer's Choice — Phase 1 schema.
+// Scope: identity + place. Rental, commerce, community land in later phases.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, btree_gist]
+}
+
+// ---------------------------------------------------------------- identity
+
+enum Role {
+  FARMER
+  OWNER
+  SELLER
+  EXPERT
+  ADMIN
+}
+
+enum Lang {
+  te
+  hi
+  en
+}
+
+/// One person = one row. Someone who farms AND rents out a tractor is a single
+/// user with two rows in UserRole, not two accounts -- otherwise their rating
+/// history splits in half.
+model User {
+  id            String   @id @default(uuid())
+  phone         String   @unique // E.164, e.g. +919876543210
+  name          String?
+  photoUrl      String?
+  preferredLang Lang     @default(te)
+  villageId     String?
+  village       Location? @relation(fields: [villageId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastSeenAt    DateTime?
+  blockedAt     DateTime?
+
+  roles         UserRole[]
+  farms         Farm[]
+  devices       Device[]
+  refreshTokens RefreshToken[]
+
+  @@index([villageId])
+}
+
+model UserRole {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role
+  grantedAt DateTime @default(now())
+
+  @@id([userId, role])
+}
+
+model Device {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken   String   @unique
+  platform   String // "android" | "ios"
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- auth
+
+/// Codes are never stored in the clear. One row per request so rate limiting
+/// and attempt counting have something to count.
+model OtpRequest {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  salt       String
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  requestIp  String?
+
+  @@index([phone, createdAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- place
+
+enum LocationLevel {
+  STATE
+  DISTRICT
+  MANDAL
+  VILLAGE
+}
+
+/// Seeded from India's Local Government Directory (LGD). Using the government's
+/// own codes means every public agri dataset joins against this table for free.
+model Location {
+  id       String        @id @default(uuid())
+  lgdCode  String        @unique
+  level    LocationLevel
+  name     String
+  nameTe   String?
+  nameHi   String?
+  pincode  String?
+  parentId String?
+  parent   Location?     @relation("LocationTree", fields: [parentId], references: [id])
+  children Location[]    @relation("LocationTree")
+
+  /// Village centroid. Used to resolve a GPS fix to a village.
+  centroid Unsupported("geography(Point, 4326)")?
+
+  users User[]
+  farms Farm[]
+
+  @@index([parentId])
+  @@index([level])
+  @@index([name])
+}
+
+enum AreaUnit {
+  ACRE
+  GUNTA // 1 acre = 40 guntas. Telangana land records use these.
+  HECTARE
+}
+
+model Farm {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label          String?
+  areaValue      Decimal   @db.Decimal(10, 2)
+  areaUnit       AreaUnit  @default(ACRE)
+  soilType       String?
+  irrigationType String?
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  /// Exact plot location. Never serialised to a client -- see docs/architecture.
+  geog      Unsupported("geography(Point, 4326)")?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  crops     FarmCrop[]
+
+  @@index([userId])
+}
+
+model Crop {
+  id     String     @id @default(uuid())
+  slug   String     @unique
+  nameEn String
+  nameTe String
+  nameHi String
+  farms  FarmCrop[]
+  recommendations NutrientRecommendation[]
+}
+
+model FarmCrop {
+  farmId String
+  farm   Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropId String
+  crop   Crop   @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  season String? // kharif | rabi | zaid
+
+  @@id([farmId, cropId])
+}
+
+// ---------------------------------------------------------------- qr
+
+enum QrTagType {
+  PRODUCT_BATCH // authenticity: is this bag of seed genuine?
+  EQUIPMENT     // handover: start/stop the rental clock
+}
+
+/// A QR code carries an opaque `code` and nothing else. What it MEANS is stored
+/// here and resolved server-side -- a code that encoded a price or a booking id
+/// would be trivially forged with a printer.
+model QrTag {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  type      QrTagType
+  /// Type-specific detail (batch no, manufacturer, equipment id...).
+  payload   Json
+  issuedAt  DateTime  @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+
+  scans QrScan[]
+
+  @@index([type])
+}
+
+/// Every scan, including ones that resolved to nothing. The history is the
+/// counterfeit signal: one batch code scanned in three districts in a week is
+/// a cloned label.
+model QrScan {
+  id        String   @id @default(uuid())
+  rawCode   String
+  tagId     String?
+  tag       QrTag?   @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  userId    String?
+  /// Anonymous app install id. There is no login; this only separates
+  /// "one person scanning twice" from "two people in two places".
+  deviceId  String?
+  outcome   String // genuine | unknown | revoked | expired
+  latitude  Float?
+  longitude Float?
+  villageId String?
+  scannedAt DateTime @default(now())
+
+  @@index([tagId, scannedAt])
+  @@index([rawCode])
+}
+
+// ---------------------------------------------------------------- fertilizer
+
+/// Draft -> Review -> Verified -> Published. Farmers only ever see PUBLISHED.
+enum RecStatus {
+  DRAFT
+  REVIEW
+  VERIFIED
+  PUBLISHED
+  RETIRED
+}
+
+enum RecType {
+  GENERAL
+  SOIL_TEST
+  STCR
+}
+
+enum Season {
+  KHARIF
+  RABI
+  SUMMER
+  PERENNIAL
+}
+
+enum Irrigation {
+  IRRIGATED
+  RAINFED
+}
+
+/// Who published the number. Every agronomic row points at one of these.
+model RecommendationSource {
+  id           String   @id @default(uuid())
+  organisation String
+  document     String
+  url          String?
+  page         String?
+  region       String
+  publishedOn  DateTime?
+  /// Who checked it against the original document, and when.
+  verifiedOn   DateTime
+  verifiedBy   String
+  version      String
+  createdAt    DateTime @default(now())
+
+  recommendations NutrientRecommendation[]
+  soilClasses     SoilClassification[]
+
+  @@unique([organisation, document, version])
+}
+
+/// A nutrient requirement as some authority published it. sourceId is NOT
+/// nullable: the database itself refuses an unsourced agricultural number.
+model NutrientRecommendation {
+  id              String     @id @default(uuid())
+  state           String
+  district        String?
+  agroClimaticZone String?
+  cropId          String
+  crop            Crop       @relation(fields: [cropId], references: [id])
+  variety         String?
+  season          Season
+  irrigation      Irrigation
+  soilCondition   String?
+  /// Only set when the methodology is yield-targeted (STCR).
+  targetYieldQtlHa Decimal?  @db.Decimal(8, 2)
+
+  /// kg per hectare, as published. P and K are oxide basis (P2O5, K2O).
+  nPerHa    Decimal @db.Decimal(8, 2)
+  p2o5PerHa Decimal @db.Decimal(8, 2)
+  k2oPerHa  Decimal @db.Decimal(8, 2)
+
+  type      RecType
+  status    RecStatus @default(DRAFT)
+  effectiveDate DateTime?
+
+  sourceId String
+  source   RecommendationSource @relation(fields: [sourceId], references: [id])
+
+  /// Set when two authorities disagree; both rows are kept and flagged.
+  conflictsWithId String?
+  conflictNote    String?
+
+  stages    ApplicationStageRow[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([state, cropId, season, irrigation, status])
+}
+
+model ApplicationStageRow {
+  id               String  @id @default(uuid())
+  recommendationId String
+  recommendation   NutrientRecommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  stage            String
+  daysAfterSowing  Int?
+  orderIndex       Int     @default(0)
+  /// Share of each nutrient at this stage, 0-1. Null = nutrient not applied here.
+  nShare    Decimal? @db.Decimal(4, 3)
+  p2o5Share Decimal? @db.Decimal(4, 3)
+  k2oShare  Decimal? @db.Decimal(4, 3)
+
+  @@index([recommendationId, orderIndex])
+}
+
+/// Bag specifications, not recommendations. Percentages by weight.
+model FertilizerProduct {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  name      String
+  nameTe    String?
+  nameHi    String?
+  nPct      Decimal  @db.Decimal(5, 2)
+  p2o5Pct   Decimal  @db.Decimal(5, 2)
+  k2oPct    Decimal  @db.Decimal(5, 2)
+  sPct      Decimal? @db.Decimal(5, 2)
+  znPct     Decimal? @db.Decimal(5, 2)
+  /// Regions where this product is actually sold. Empty = everywhere.
+  regions   String[] @default([])
+  isActive  Boolean  @default(true)
+
+  prices FertilizerPrice[]
+}
+
+model FertilizerPrice {
+  id         String   @id @default(uuid())
+  productId  String
+  product    FertilizerProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  state      String
+  rupeesPerKg Decimal @db.Decimal(8, 2)
+  observedOn DateTime
+  sourceNote String
+
+  @@index([productId, state, observedOn])
+}
+
+/// Low/medium/high bands for a soil-test parameter. Also requires a source --
+/// threshold values are agronomic numbers like any other.
+model SoilClassification {
+  id        String  @id @default(uuid())
+  parameter String
+  unit      String
+  lowBelow  Decimal @db.Decimal(10, 3)
+  highAbove Decimal @db.Decimal(10, 3)
+  region    String
+  sourceId  String
+  source    RecommendationSource @relation(fields: [sourceId], references: [id])
+
+  @@unique([parameter, region])
+}
