@@ -1,0 +1,26 @@
+# Render Blueprint. In Render: New -> Blueprint -> pick this repo.
+# Everything is configured here except DATABASE_URL, which you paste in.
+services:
+  - type: web
+    name: farmers-choice-api
+    runtime: docker
+    repo: https://github.com/adminnivicollections-creator/farmers-choice
+    branch: main
+    # Context is the repo ROOT: this is a monorepo and the image needs packages/.
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    region: singapore          # closest Render region to India
+    plan: free
+    healthCheckPath: /healthz  # queries the DB, so green means genuinely serving
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false            # you paste this from Supabase; never committed
+      - key: JWT_SECRET
+        generateValue: true    # Render generates a strong one
+      - key: OTP_PROVIDER
+        value: console         # until DLT registration completes
+      - key: SEED_ON_BOOT
+        value: "true"          # set to false after the first successful deploy

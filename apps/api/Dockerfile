@@ -44,4 +44,8 @@ WORKDIR /repo/apps/api
 EXPOSE 3000
 
 # Migrations run on boot so a deploy can never serve a schema it doesn't have.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# Migrations always; seed only when asked. Neither can be skipped silently:
+# a failed migration stops the boot rather than serving an unknown schema.
+CMD ["sh", "-c", "npx prisma migrate deploy && \
+  if [ \"$SEED_ON_BOOT\" = \"true\" ]; then node dist/seed/run.js; fi && \
+  node dist/main.js"]
