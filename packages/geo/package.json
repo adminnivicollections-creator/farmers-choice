@@ -4,6 +4,10 @@
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "scripts": { "test": "tsx --test src/*.test.ts" },
-  "dependencies": { "geographiclib-geodesic": "^2.1.1" }
+  "scripts": {
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "geographiclib-geodesic": "^2.1.1"
+  }
 }

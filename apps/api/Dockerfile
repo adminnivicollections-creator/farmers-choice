@@ -16,6 +16,8 @@ RUN npm ci
 COPY packages ./packages
 COPY apps/api ./apps/api
 
+RUN npm run build --workspace @fc/fert
+
 WORKDIR /repo/apps/api
 RUN npx prisma generate && npm run build
 
@@ -35,6 +37,7 @@ COPY packages/tokens/package.json packages/tokens/
 RUN npm ci --omit=dev
 
 COPY packages ./packages
+COPY --from=build /repo/packages/fert/dist ./packages/fert/dist
 COPY --from=build /repo/apps/api/dist ./apps/api/dist
 COPY --from=build /repo/apps/api/prisma ./apps/api/prisma
 COPY --from=build /repo/node_modules/.prisma ./node_modules/.prisma
