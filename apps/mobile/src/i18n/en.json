@@ -48,7 +48,8 @@
   "common": {
     "retry": "Try again",
     "loading": "Please wait…",
-    "error": "Something went wrong"
+    "error": "Something went wrong",
+    "cancel": "Cancel"
   },
   "name": {
     "title": "Your name",
@@ -85,7 +86,25 @@
     "adLoading": "One moment…",
     "timeout": "The server did not respond.",
     "cameraRead": "Camera read:",
-    "cameraOk": "✓ The scanner works — only the server could not be reached."
+    "cameraOk": "✓ The scanner works — only the server could not be reached.",
+    "f": {
+      "website": "Website",
+      "payment": "Payment request",
+      "phone": "Phone number",
+      "email": "Email",
+      "wifi": "Wi-Fi network",
+      "place": "Location",
+      "text": "Text",
+      "payTo": "Pay to",
+      "upiId": "UPI ID",
+      "amount": "Amount",
+      "payWarn": "This code asks for a payment. Farmer’s Choice cannot check who this is. Do not pay unless you know them.",
+      "lookalike": "This web address imitates a well-known name. Treat it as unsafe.",
+      "open": "Open",
+      "openIn": "Open in browser",
+      "confirmTitle": "Open this website?",
+      "confirmBody": "This link was in the QR code, not from Farmer’s Choice. We cannot check if it is safe.\n\n{{host}}"
+    }
   },
   "features": {
     "scan": "Scan QR",

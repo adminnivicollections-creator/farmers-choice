@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View,
+  ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,10 +11,22 @@ import { getApiBase, api, ApiError, TimeoutError } from '../lib/api';
 import { ScanRecord, addScan, listScans } from '../features/scan/history';
 import { initAds, showInterstitial, waitForPreload } from '../lib/ads';
 
+type Foreign = {
+  kind: 'url' | 'upi' | 'phone' | 'email' | 'wifi' | 'geo' | 'text';
+  display: string;
+  openable: boolean;
+  host?: string;
+  suspiciousHost?: boolean;
+  payee?: string;
+  payeeName?: string;
+  amount?: string;
+};
+
 type Resolved = {
   outcome: 'genuine' | 'unknown' | 'revoked' | 'expired' | 'not_ours';
   type?: 'PRODUCT_BATCH' | 'EQUIPMENT';
   detail?: Record<string, any>;
+  foreign?: Foreign;
   warning?: { kind: string; message: string };
 };
 
@@ -248,6 +260,59 @@ function ResultCard({ r }: { r: Resolved }) {
       )}
       {good && r.type === 'EQUIPMENT' && <Row k="Owner" v={d.ownerName} />}
       {r.warning && <Text style={s.resultWarn}>{r.warning.message}</Text>}
+      {r.foreign && <ForeignBlock f={r.foreign} />}
+    </View>
+  );
+}
+
+/**
+ * A code that is not ours. We show what it holds so the farmer can judge it,
+ * and open nothing by ourselves: tapping is always their explicit choice, and
+ * only ever for http/https.
+ */
+function ForeignBlock({ f }: { f: Foreign }) {
+  const { t } = useTranslation();
+
+  const label = {
+    url: t('scan.f.website'), upi: t('scan.f.payment'), phone: t('scan.f.phone'),
+    email: t('scan.f.email'), wifi: t('scan.f.wifi'), geo: t('scan.f.place'),
+    text: t('scan.f.text'),
+  }[f.kind];
+
+  return (
+    <View style={s.foreign}>
+      <Text style={s.foreignKind}>{label}</Text>
+
+      {f.kind === 'upi' ? (
+        <>
+          <Row k={t('scan.f.payTo')} v={f.payeeName ?? f.payee} />
+          {f.payeeName && f.payee ? <Row k={t('scan.f.upiId')} v={f.payee} /> : null}
+          <Row k={t('scan.f.amount')} v={f.amount ? `₹${f.amount}` : undefined} />
+          <Text style={s.foreignDanger}>{t('scan.f.payWarn')}</Text>
+        </>
+      ) : (
+        <>
+          {f.host ? <Text style={s.foreignHost}>{f.host}</Text> : null}
+          <Text style={s.foreignText} numberOfLines={4}>{f.display}</Text>
+        </>
+      )}
+
+      {f.suspiciousHost && <Text style={s.foreignDanger}>{t('scan.f.lookalike')}</Text>}
+
+      {f.openable && (
+        <Pressable
+          style={s.foreignOpen}
+          onPress={() => {
+            Alert.alert(t('scan.f.confirmTitle'), t('scan.f.confirmBody', { host: f.host ?? '' }), [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('scan.f.open'), onPress: () => Linking.openURL(f.display).catch(() => {}) },
+            ]);
+          }}
+        >
+          <MaterialCommunityIcons name="open-in-new" size={18} color={color.greenDark} />
+          <Text style={s.foreignOpenText}>{t('scan.f.openIn')}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -337,6 +402,15 @@ const s = StyleSheet.create({
   resultBadge: { ...type.label, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
   resultName: { ...type.title, color: color.ink },
   resultWarn: { ...type.label, color: color.danger, marginTop: space.xs },
+  foreign: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e3df' },
+  foreignKind: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: '#6b6b6b', marginBottom: 6 },
+  foreignHost: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 2 },
+  foreignText: { fontSize: 13, color: '#4a4a4a', lineHeight: 19 },
+  foreignDanger: { marginTop: 8, fontSize: 13, fontWeight: '700', color: color.danger, lineHeight: 19 },
+  foreignOpen: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
+    marginTop: 12, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 8,
+    borderWidth: 1, borderColor: color.green, backgroundColor: '#f1f7f2' },
+  foreignOpenText: { fontSize: 14, fontWeight: '700', color: color.greenDark },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: space.md },
   rowK: { ...type.caption, color: color.inkMuted },
   rowV: { ...type.label, color: color.ink, flexShrink: 1, textAlign: 'right' },
