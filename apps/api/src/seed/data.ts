@@ -117,7 +117,7 @@ export const PRODUCTS = [
   { key: 'npk-10-26-26', name: 'NPK 10-26-26', nPct: 10, p2o5Pct: 26, k2oPct: 26 },
   { key: 'npk-12-32-16', name: 'NPK 12-32-16', nPct: 12, p2o5Pct: 32, k2oPct: 16 },
   { key: 'npk-20-20-0-13', name: 'NPK 20-20-0-13', nPct: 20, p2o5Pct: 20, k2oPct: 0, sPct: 13 },
-  { key: 'mustard-can', name: 'Calcium Ammonium Nitrate', nPct: 25, p2o5Pct: 0, k2oPct: 0 },
+  { key: 'can', name: 'Calcium Ammonium Nitrate', nPct: 25, p2o5Pct: 0, k2oPct: 0 },
   { key: 'sop',     name: 'SOP',             nPct: 0,  p2o5Pct: 0,  k2oPct: 50, sPct: 17 },
 ];
 
