@@ -211,6 +211,6 @@
     "checking": "Checking…",
     "reachable": "Server reachable ✓",
     "unreachable": "Could not reach the server ✗",
-    "serverHint": "Default: {{base}}. Phone and laptop must be on the same network."
+    "serverHint": "Default: {{base}}"
   }
 }

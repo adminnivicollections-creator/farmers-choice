@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
+import { LANGS, Lang, setLang } from '../i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
 import { api } from '../lib/api';
@@ -23,6 +24,9 @@ type Tool = {
   tint: string;
 };
 
+/** Short label for the header button, so it stays readable at 18px. */
+const SHORT: Record<Lang, string> = { te: 'తె', hi: 'हि', en: 'EN' };
+
 const TOOLS: Tool[] = [
   { key: 'scan',       icon: require('../../assets/icons/scan.png'),       title: 'features.scan', sub: 'features.scanSub', tint: color.greenSoft },
   { key: 'land',       icon: require('../../assets/icons/land.png'),       title: 'features.land', sub: 'features.landSub', tint: color.greenSoft },
@@ -41,6 +45,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
   const insets = useSafeAreaInsets();
   const [village, setVillage] = useState<string | null>(null);
   const [weather, setWeather] = useState<Weather | null>(null);
+  const [langOpen, setLangOpen] = useState(false);
 
   // Real location and real weather, or nothing. No invented values.
   useEffect(() => {
@@ -73,6 +78,17 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
             <Text style={s.greet}>{t(greetingKey())},</Text>
             <Text style={s.greetName}>{t('home.farmer')} 👋</Text>
           </View>
+          <Pressable
+            onPress={() => setLangOpen(true)}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t('lang.choose')}
+            style={s.langBtn}
+          >
+            <MaterialCommunityIcons name="translate" size={18} color={color.greenDark} />
+            <Text style={s.langBtnText}>{SHORT[i18n.language as Lang] ?? 'EN'}</Text>
+          </Pressable>
+
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
             <View style={s.metaRow}>
               <MaterialCommunityIcons name="map-marker" size={16} color={color.greenDark} />
@@ -90,6 +106,26 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
             </View>
           </View>
         </View>
+
+        <Modal visible={langOpen} transparent animationType="fade" onRequestClose={() => setLangOpen(false)}>
+          <Pressable style={s.sheetBg} onPress={() => setLangOpen(false)}>
+            <View style={s.sheet}>
+              <Text style={s.sheetTitle}>{t('lang.choose')}</Text>
+              {LANGS.map((l) => (
+                <Pressable
+                  key={l}
+                  onPress={async () => { await setLang(l); setLangOpen(false); }}
+                  style={[s.langRow, i18n.language === l && s.langRowOn]}
+                >
+                  <Text style={[s.langRowText, i18n.language === l && s.langRowTextOn]}>{t(`lang.${l}`)}</Text>
+                  {i18n.language === l && (
+                    <MaterialCommunityIcons name="check" size={20} color={color.greenDark} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Modal>
 
         {/* banner */}
         <View style={s.banner}>
@@ -228,6 +264,17 @@ const s = StyleSheet.create({
     backgroundColor: color.bg, borderWidth: 1.5, borderColor: color.line, gap: space.sm,
   },
   cardOn: { borderColor: color.green, backgroundColor: color.greenSoft },
+  langBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999, backgroundColor: color.greenSoft, marginRight: space.sm },
+  langBtnText: { fontWeight: '700', color: color.greenDark, fontSize: 13 },
+  sheetBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: color.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: space.lg, gap: space.sm },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: color.ink, marginBottom: space.sm },
+  langRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 16, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: color.surfaceAlt },
+  langRowOn: { backgroundColor: color.greenSoft },
+  langRowText: { fontSize: 17, color: color.ink },
+  langRowTextOn: { fontWeight: '700', color: color.greenDark },
   iconArt: { width: 56, height: 56, marginBottom: space.sm, borderRadius: radius.md },
   iconBox: { width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

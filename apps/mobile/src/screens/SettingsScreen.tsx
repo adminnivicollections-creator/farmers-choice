@@ -47,6 +47,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
           ))}
         </View>
 
+        {__DEV__ && <>
         <Text style={s.label}>{t('settings.server')}</Text>
         <TextInput
           value={url}
@@ -68,6 +69,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
 
         {state === 'ok' && <Text style={s.ok}>{t('settings.reachable')}</Text>}
         {state === 'bad' && <Text style={s.bad}>{t('settings.unreachable')}</Text>}
+        </>}
       </View>
     </View>
   );
