@@ -33,7 +33,7 @@ export default function LandScreen({
   const [perm, setPerm] = useState<PermState>('checking');
   const [here, setHere] = useState<(LatLng & { accuracy: number | null }) | null>(null);
   const [mode, setMode] = useState<Mode>('draw');
-  const [unit, setUnit] = useState<AreaUnit>('sqft');
+  const [unit, setUnit] = useState<AreaUnit>('acre'); // what a Guntur farmer actually thinks in
   const [walking, setWalking] = useState(false);
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState(initial?.name ?? '');
