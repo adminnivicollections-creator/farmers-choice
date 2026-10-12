@@ -10,13 +10,12 @@ import HomeScreen, { Feature } from './src/screens/HomeScreen';
 import TabBar, { Tab } from './src/components/TabBar';
 import ScanScreen from './src/screens/ScanScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
-import ComingSoonScreen from './src/screens/ComingSoonScreen';
 import LandScreen from './src/features/land/LandScreen';
 import SavedScreen from './src/features/land/SavedScreen';
 import FertilizerScreen from './src/features/fertilizer/FertilizerScreen';
 import type { SavedMeasurement } from './src/features/land/storage';
 
-type Step = 'boot' | 'splash' | 'home' | Feature | 'landSaved' | 'farm' | 'profile';
+type Step = 'boot' | 'splash' | 'home' | Feature | 'landSaved' | 'profile';
 
 /**
  * No login. The app opens straight into the three features.
@@ -28,8 +27,8 @@ export default function App() {
   const [editing, setEditing] = useState<SavedMeasurement | null>(null);
 
   const tabFor = (st: Step): Tab =>
-    st === 'scan' ? 'scan' : st === 'farm' ? 'farm' : st === 'profile' ? 'profile' : 'home';
-  const showTabs = ['home', 'farm', 'profile'].includes(step as string);
+    st === 'scan' ? 'scan' : st === 'profile' ? 'profile' : 'home';
+  const showTabs = ['home', 'profile'].includes(step as string);
 
   useEffect(() => { Promise.all([initI18n(), loadApiBase()]).then(() => setStep('splash')); }, []);
 
@@ -64,19 +63,13 @@ export default function App() {
         />
       )}
       {step === 'fertilizer' && <FertilizerScreen onClose={home} />}
-      {step === 'cropdoctor' && (
-        <ComingSoonScreen title="Crop Doctor" note="Not started. Needs labelled crop-disease images." onClose={home} />
-      )}
-      {step === 'farm' && (
-        <ComingSoonScreen title="My Farm" note="Not started." onClose={home} />
-      )}
       {step === 'profile' && <SettingsScreen onClose={home} />}
 
       {showTabs && (
         <TabBar
           active={tabFor(step)}
           onChange={(tab) =>
-            setStep(tab === 'scan' ? 'scan' : tab === 'farm' ? 'farm' : tab === 'profile' ? 'profile' : 'home')
+            setStep(tab === 'scan' ? 'scan' : tab === 'profile' ? 'profile' : 'home')
           }
         />
       )}

@@ -5,12 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { color, space, type } from '@fc/tokens';
 
-export type Tab = 'home' | 'scan' | 'farm' | 'profile';
+export type Tab = 'home' | 'scan' | 'profile';
 
 const TABS: { key: Tab; icon: keyof typeof MaterialCommunityIcons.glyphMap; label: string }[] = [
   { key: 'home',    icon: 'home-variant', label: 'tabs.home' },
   { key: 'scan',    icon: 'qrcode-scan',  label: 'tabs.scan' },
-  { key: 'farm',    icon: 'barn',         label: 'tabs.farm' },
   { key: 'profile', icon: 'account-outline', label: 'tabs.profile' },
 ];
 

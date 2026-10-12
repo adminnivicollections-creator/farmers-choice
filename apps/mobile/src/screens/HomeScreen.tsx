@@ -8,24 +8,25 @@ import { color, radius, space, type } from '@fc/tokens';
 import { api } from '../lib/api';
 import { Weather, fetchWeather } from '../lib/weather';
 
-export type Feature = 'scan' | 'land' | 'fertilizer' | 'cropdoctor';
+export type Feature = 'scan' | 'land' | 'fertilizer';
 
 const BANNER = require('../../assets/home-banner.png');
 const LOGO = require('../../assets/logo.png');
 
 type Tool = {
   key: Feature;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  /** Supplied artwork. These already carry their own rounded tile and
+   *  background, so no tint box is drawn behind them. */
+  icon: ReturnType<typeof require>;
   title: string;
   sub: string;
   tint: string;
 };
 
 const TOOLS: Tool[] = [
-  { key: 'scan',        icon: 'qrcode-scan',     title: 'features.scan', sub: 'features.scanSub', tint: color.greenSoft },
-  { key: 'land',        icon: 'vector-square',   title: 'features.land', sub: 'features.landSub', tint: color.greenSoft },
-  { key: 'fertilizer',  icon: 'sack',            title: 'features.fert', sub: 'features.fertSub', tint: color.soilSoft },
-  { key: 'cropdoctor',  icon: 'leaf-circle',     title: 'features.doctor', sub: 'features.doctorSub', tint: color.greenSoft },
+  { key: 'scan',       icon: require('../../assets/icons/scan.png'),       title: 'features.scan', sub: 'features.scanSub', tint: color.greenSoft },
+  { key: 'land',       icon: require('../../assets/icons/land.png'),       title: 'features.land', sub: 'features.landSub', tint: color.greenSoft },
+  { key: 'fertilizer', icon: require('../../assets/icons/fertilizer.png'), title: 'features.fert', sub: 'features.fertSub', tint: color.soilSoft },
 ];
 
 function greetingKey(d = new Date()): string {
@@ -113,9 +114,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
               onPress={() => onOpen(tool.key)}
               style={({ pressed }) => [s.card, pressed && s.cardOn]}
             >
-              <View style={[s.iconBox, { backgroundColor: tool.tint }]}>
-                <MaterialCommunityIcons name={tool.icon} size={28} color={color.greenDark} />
-              </View>
+              <Image source={tool.icon} style={s.iconArt} resizeMode="contain" />
               <View style={s.cardTitleRow}>
                 <Text style={s.cardTitle}>{t(tool.title)}</Text>
                 <MaterialCommunityIcons name="chevron-right" size={22} color={color.inkFaint} />
@@ -173,7 +172,9 @@ function SectionHead({ title }: { title: string }) {
 function StatCard({
   icon, tint, iconColor, label, value, note,
 }: {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  /** Supplied artwork. These already carry their own rounded tile and
+   *  background, so no tint box is drawn behind them. */
+  icon: ReturnType<typeof require>;
   tint: string; iconColor: string; label: string; value: string; note: string;
 }) {
   return (
@@ -227,6 +228,7 @@ const s = StyleSheet.create({
     backgroundColor: color.bg, borderWidth: 1.5, borderColor: color.line, gap: space.sm,
   },
   cardOn: { borderColor: color.green, backgroundColor: color.greenSoft },
+  iconArt: { width: 56, height: 56, marginBottom: space.sm, borderRadius: radius.md },
   iconBox: { width: 52, height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardTitle: { ...type.heading, color: color.ink, flexShrink: 1 },
