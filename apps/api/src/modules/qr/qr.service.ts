@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { Outcome, outcomeFor, parseScanned, suspicion } from './qr-code';
+import { Outcome, outcomeFor, parseScanned, suspicion , describeForeign } from './qr-code';
 
 export type ResolveInput = {
   raw: string;
@@ -12,6 +12,8 @@ export type ResolveInput = {
 
 export type ResolveResult = {
   outcome: Outcome | 'not_ours';
+  /** Present for a code that is not ours: what it holds, for the UI to show. */
+  foreign?: ReturnType<typeof describeForeign>;
   type?: 'PRODUCT_BATCH' | 'EQUIPMENT';
   /** Safe, server-authored detail for the UI. Never the raw scanned string. */
   detail?: Record<string, unknown>;
@@ -33,12 +35,19 @@ export class QrService {
     // stop. We never navigate to a scanned URL — that is the phishing path.
     if (parsed.kind !== 'fc') {
       await this.recordScan({ ...input, rawCode: input.raw?.slice(0, 512) ?? '', outcome: 'unknown' });
+      // Describe it rather than dismissing it: a farmer scanning a real
+      // product should see what the code holds. We still never act on it.
+      const foreign = parsed.kind === 'foreign' ? describeForeign(input.raw ?? '') : undefined;
       return {
         outcome: 'not_ours',
         action: 'none',
+        foreign,
         warning: {
           kind: parsed.kind === 'foreign' ? 'foreign_code' : 'unreadable',
-          message: 'This code is not from Farmer’s Choice.',
+          message:
+            parsed.kind === 'foreign'
+              ? 'This code is not from Farmer’s Choice. We cannot verify it.'
+              : 'This code could not be read.',
         },
       };
     }

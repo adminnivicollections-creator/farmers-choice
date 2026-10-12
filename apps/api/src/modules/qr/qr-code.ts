@@ -73,3 +73,81 @@ export function suspicion(h: ScanHistory): { suspicious: boolean; reason?: strin
   }
   return { suspicious: false };
 }
+
+/* ------------------------------------------------------------------ foreign
+ * A QR that isn't ours still deserves an answer. We describe what it holds so
+ * the farmer can decide, and never act on it ourselves.
+ */
+
+export type ForeignKind = 'url' | 'upi' | 'phone' | 'email' | 'wifi' | 'geo' | 'text';
+
+export type ForeignDescription = {
+  kind: ForeignKind;
+  /** Safe to render. Control characters stripped, length-capped. */
+  display: string;
+  /** Only ever true for http/https. The UI shows an open button solely for these. */
+  openable: boolean;
+  /** Host as the browser would resolve it, so a lookalike domain is visible. */
+  host?: string;
+  /** Host contains non-ASCII or punycode: a classic impersonation trick. */
+  suspiciousHost?: boolean;
+  /** UPI only. Shown so a farmer sees who is being paid before deciding. */
+  payee?: string;
+  payeeName?: string;
+  amount?: string;
+};
+
+const DISPLAY_LIMIT = 200;
+
+/** Strip control characters and bidi overrides, which can disguise text. */
+function sanitise(s: string): string {
+  return s.replace(/[\u0000-\u001F\u007F-\u009F​-‏‪-‮⁦-⁩]/g, '').slice(0, DISPLAY_LIMIT);
+}
+
+function paramsOf(s: string): URLSearchParams {
+  const q = s.indexOf('?');
+  return new URLSearchParams(q === -1 ? '' : s.slice(q + 1));
+}
+
+export function describeForeign(raw: string): ForeignDescription {
+  const s = sanitise(raw.trim());
+  const lower = s.toLowerCase();
+
+  if (lower.startsWith('upi://')) {
+    const p = paramsOf(s);
+    return {
+      kind: 'upi',
+      display: s,
+      openable: false,
+      payee: p.get('pa') ? sanitise(p.get('pa')!) : undefined,
+      payeeName: p.get('pn') ? sanitise(p.get('pn')!) : undefined,
+      amount: p.get('am') ? sanitise(p.get('am')!) : undefined,
+    };
+  }
+
+  if (lower.startsWith('tel:')) return { kind: 'phone', display: sanitise(s.slice(4)), openable: false };
+  if (lower.startsWith('mailto:')) return { kind: 'email', display: sanitise(s.slice(7)), openable: false };
+  if (lower.startsWith('wifi:')) return { kind: 'wifi', display: s, openable: false };
+  if (lower.startsWith('geo:')) return { kind: 'geo', display: s, openable: false };
+
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      const u = new URL(s);
+      // url.hostname gives the punycode form, which is what actually resolves.
+      // Showing it is the point: "xn--pypal-4ve.com" reads as an impostor,
+      // while the unicode spelling does not.
+      const host = u.hostname;
+      return {
+        kind: 'url',
+        display: s,
+        openable: u.protocol === 'http:' || u.protocol === 'https:',
+        host,
+        suspiciousHost: host.includes('xn--') || /[^\x00-\x7F]/.test(host),
+      };
+    } catch {
+      return { kind: 'text', display: s, openable: false };
+    }
+  }
+
+  return { kind: 'text', display: s, openable: false };
+}
