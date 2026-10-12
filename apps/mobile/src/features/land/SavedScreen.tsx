@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import AdBanner from '../../components/AdBanner';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatArea } from '@fc/geo';
@@ -29,6 +30,7 @@ export default function SavedScreen({
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + 96 }}
         ListEmptyComponent={rows ? <Text style={s.empty}>{t('land.noneSaved')}</Text> : null}
+        ListFooterComponent={rows && rows.length ? <AdBanner /> : null}
         renderItem={({ item }) => (
           <Pressable onPress={() => onOpen(item)} style={({ pressed }) => [s.card, pressed && s.cardOn]}>
             <View style={{ flex: 1 }}>

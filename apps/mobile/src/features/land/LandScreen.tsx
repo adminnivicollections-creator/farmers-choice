@@ -13,6 +13,7 @@ import { color, radius, space, type } from '@fc/tokens';
 import MeasurementPanel from './MeasurementPanel';
 import { useBoundary } from './useBoundary';
 import { SavedMeasurement, buildSaved, saveMeasurement } from './storage';
+import { showInterstitial } from '../../lib/ads';
 
 type Mode = 'draw' | 'walk';
 type PermState = 'checking' | 'granted' | 'denied' | 'blocked';
@@ -132,6 +133,9 @@ export default function LandScreen({
     await saveMeasurement(saved);
     setNaming(false);
     onOpenSaved();
+    // Ads go after value, never before it. The measurement is saved and on
+    // screen; this never delays anything the farmer asked for.
+    showInterstitial().catch(() => {});
   }
 
   // --- permission screens -------------------------------------------------

@@ -16,6 +16,25 @@ const UNIT_ID = __DEV__
   ? TestIds.INTERSTITIAL
   : (process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ?? TestIds.INTERSTITIAL);
 
+export const BANNER_UNIT_ID = __DEV__
+  ? TestIds.BANNER
+  : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID ?? TestIds.BANNER);
+
+/** True when real ad units are configured, so we can warn loudly if not. */
+export const usingTestAds =
+  __DEV__ ||
+  !process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ||
+  !process.env.EXPO_PUBLIC_ADMOB_BANNER_ID;
+
+/**
+ * One interstitial per session, and never on the first screen a farmer sees.
+ * An ad that interrupts twice in a row is the difference between background
+ * furniture and an app someone uninstalls.
+ */
+let shownThisSession = 0;
+const MAX_PER_SESSION = 1;
+export const canShowInterstitial = () => shownThisSession < MAX_PER_SESSION;
+
 /** Never make the farmer wait longer than this for an ad to load. */
 const LOAD_TIMEOUT_MS = 4000;
 
@@ -59,6 +78,7 @@ export function preload() {
  * navigates to the result as soon as this settles.
  */
 export function showInterstitial(): Promise<'shown' | 'skipped'> {
+  if (!canShowInterstitial()) return Promise.resolve('skipped');
   const ad = preloaded;
   if (!ad) {
     preload(); // warm one for next time
@@ -71,6 +91,7 @@ export function showInterstitial(): Promise<'shown' | 'skipped'> {
     const finish = (how: 'shown' | 'skipped') => {
       if (settled) return;
       settled = true;
+      if (how === 'shown') shownThisSession++;
       preload();
       resolve(how);
     };

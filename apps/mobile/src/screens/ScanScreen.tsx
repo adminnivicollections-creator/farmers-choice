@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
 import { getApiBase, api, ApiError, TimeoutError } from '../lib/api';
 import { ScanRecord, addScan, listScans } from '../features/scan/history';
-import { initAds, showInterstitial, waitForPreload } from '../lib/ads';
+import { initAds } from '../lib/ads';
 
 type Foreign = {
   kind: 'url' | 'upi' | 'phone' | 'email' | 'wifi' | 'geo' | 'text';
@@ -35,7 +35,6 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
-  const [adPlaying, setAdPlaying] = useState(false);
   const [torch, setTorch] = useState(false);
   const [result, setResult] = useState<Resolved | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,20 +57,12 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
       // error immediately instead of sitting through an ad for nothing.
       const r: Resolved = await api.resolveQr(data);
 
-      // Ad gate. Never blocks the result: showInterstitial always settles, and
-      // waitForPreload gives up after a few seconds.
-      setAdPlaying(true);
-      await waitForPreload();
-      await showInterstitial();
-      setAdPlaying(false);
-
       setResult(r);
       const title =
         r.detail?.productName ?? r.detail?.equipmentName ??
         (r.outcome === 'not_ours' ? t('scan.foreign') : t('scan.unknownItem'));
       setRecent(await addScan({ title, outcome: r.outcome, type: r.type }));
     } catch (e) {
-      setAdPlaying(false);
       // Distinguish "server said no" from "could not reach the server at all" --
       // on a phone the second is far more likely and needs a different fix.
       setError(
@@ -146,7 +137,7 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
           <View style={s.camFoot}>
             <MaterialCommunityIcons name="camera-outline" size={18} color="#fff" />
             <Text style={s.camFootText}>
-              {adPlaying ? t('scan.adLoading') : busy ? t('scan.checking') : t('scan.point')}
+              {busy ? t('scan.checking') : t('scan.point')}
             </Text>
           </View>
         </View>
