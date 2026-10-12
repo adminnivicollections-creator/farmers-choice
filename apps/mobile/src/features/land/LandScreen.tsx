@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import MapView, { MapPressEvent, Marker, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -16,7 +17,7 @@ import { SavedMeasurement, buildSaved, saveMeasurement } from './storage';
 import { showInterstitial } from '../../lib/ads';
 
 type Mode = 'draw' | 'walk';
-type PermState = 'checking' | 'granted' | 'denied' | 'blocked';
+type PermState = 'checking' | 'rationale' | 'granted' | 'denied' | 'blocked';
 
 const GHATKESAR = { latitude: 17.4516, longitude: 78.6862, latitudeDelta: 0.01, longitudeDelta: 0.01 };
 
@@ -47,9 +48,10 @@ export default function LandScreen({
   // --- permission + current position -------------------------------------
   useEffect(() => {
     (async () => {
-      const r = await Location.requestForegroundPermissionsAsync();
+      // Check without prompting. The prompt comes after the explanation.
+      const r = await Location.getForegroundPermissionsAsync();
       if (r.status === 'granted') { setPerm('granted'); return; }
-      setPerm(r.canAskAgain ? 'denied' : 'blocked');
+      setPerm(r.canAskAgain ? 'rationale' : 'blocked');
     })();
     return () => { watcher.current?.remove(); };
   }, []);
@@ -145,10 +147,21 @@ export default function LandScreen({
   if (perm !== 'granted') {
     return (
       <Centered>
-        <Text style={s.permTitle}>{t('land.permTitle')}</Text>
-        <Text style={s.permBody}>
-          {perm === 'blocked' ? t('land.permBlocked') : t('land.permBody')}
+        <MaterialCommunityIcons
+          name={perm === 'blocked' ? 'map-marker-off-outline' : 'map-marker-radius-outline'}
+          size={56}
+          color={color.green}
+          style={{ marginBottom: space.md }}
+        />
+        <Text style={s.permTitle}>
+          {perm === 'rationale' ? t('land.rationaleTitle') : t('land.permTitle')}
         </Text>
+        <Text style={s.permBody}>
+          {perm === 'blocked' ? t('land.permBlocked')
+            : perm === 'rationale' ? t('land.rationaleBody')
+            : t('land.permBody')}
+        </Text>
+        {perm === 'rationale' && <Text style={s.permPrivacy}>{t('land.rationalePrivacy')}</Text>}
         <Pressable
           style={s.primaryBtn}
           onPress={() => perm === 'blocked'
@@ -387,6 +400,7 @@ const s = StyleSheet.create({
   },
 
   permTitle: { ...type.title, color: color.ink, textAlign: 'center' },
+  permPrivacy: { marginTop: space.sm, textAlign: 'center', color: color.inkMuted, fontSize: 13, lineHeight: 19 },
   permBody: { ...type.body, color: color.inkMuted, textAlign: 'center' },
   primaryBtn: {
     minHeight: 56, borderRadius: radius.md, backgroundColor: color.green,
