@@ -123,7 +123,7 @@ export class FertilizerService {
         organisation: rec.source.organisation,
         document: rec.source.document,
         url: rec.source.url,
-        page: rec.source.page,
+        page: rec.sourcePage ?? rec.source.page,
         region: rec.source.region,
         publishedOn: rec.source.publishedOn?.toISOString() ?? null,
         verifiedOn: rec.source.verifiedOn.toISOString(),

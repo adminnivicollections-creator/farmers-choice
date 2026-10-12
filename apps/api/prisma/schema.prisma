@@ -307,6 +307,9 @@ model NutrientRecommendation {
 
   sourceId String
   source   RecommendationSource @relation(fields: [sourceId], references: [id])
+  /// Page or table in the source document for THIS row. A single document
+  /// covers many crops, so the locator cannot live on the shared source.
+  sourcePage String?
 
   /// Set when two authorities disagree; both rows are kept and flagged.
   conflictsWithId String?

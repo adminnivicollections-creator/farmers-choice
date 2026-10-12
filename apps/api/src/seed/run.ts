@@ -5,6 +5,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { ANDHRA_PRADESH, CROPS, PRODUCTS, TAGS, Seed } from './data';
+import { loadRecommendations } from './load-recommendations';
 
 const prisma = new PrismaClient();
 
@@ -45,6 +46,8 @@ export async function seed() {
   for (const c of CROPS) await prisma.crop.upsert({ where: { slug: c.slug }, update: c, create: c });
   for (const p of PRODUCTS) await prisma.fertilizerProduct.upsert({ where: { key: p.key }, update: p, create: p });
   for (const t of TAGS) await prisma.qrTag.upsert({ where: { code: t.code }, update: t, create: t });
+
+  await loadRecommendations(prisma);
 
   const recs = await prisma.nutrientRecommendation.count({ where: { status: 'PUBLISHED' } });
   console.log(
