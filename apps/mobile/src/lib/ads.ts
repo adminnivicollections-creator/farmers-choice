@@ -12,19 +12,28 @@ import {
  *     after ~5s; forcing a longer unskippable ad is a policy violation.
  */
 
+/**
+ * Real AdMob unit ids. Public identifiers -- they are compiled into every
+ * APK and readable by anyone who unzips it -- so they live here rather than
+ * in a .env that is deliberately untracked and would silently fall back to
+ * test ads if missing.
+ *
+ * Debug builds always use Google's test units: a real impression from a
+ * developer's own device is invalid traffic, and AdMob bans for it.
+ */
+const PROD_INTERSTITIAL = 'ca-app-pub-3137982750312922/5393376520';
+const PROD_BANNER = 'ca-app-pub-3137982750312922/2348410786';
+
 const UNIT_ID = __DEV__
   ? TestIds.INTERSTITIAL
-  : (process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ?? TestIds.INTERSTITIAL);
+  : (process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ?? PROD_INTERSTITIAL);
 
 export const BANNER_UNIT_ID = __DEV__
   ? TestIds.BANNER
-  : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID ?? TestIds.BANNER);
+  : (process.env.EXPO_PUBLIC_ADMOB_BANNER_ID ?? PROD_BANNER);
 
-/** True when real ad units are configured, so we can warn loudly if not. */
-export const usingTestAds =
-  __DEV__ ||
-  !process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ID ||
-  !process.env.EXPO_PUBLIC_ADMOB_BANNER_ID;
+/** Debug builds, or anything still pointing at a test unit. */
+export const usingTestAds = __DEV__;
 
 /**
  * One interstitial per session, and never on the first screen a farmer sees.
