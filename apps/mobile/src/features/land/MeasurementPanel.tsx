@@ -55,7 +55,7 @@ export default function MeasurementPanel({
       )}
 
       <View style={s.statRow}>
-        <Stat k={t('land.perimeter')} v={enough ? formatPerimetre(m.perimeterMeters, true) : '—'} />
+        <Stat k={t('land.perimeter')} v={enough ? formatPerimetre(m.perimeterMeters, unit === 'sqft') : '—'} />
         <Stat k={t('land.points')} v={String(m.pointCount)} />
         <Stat
           k={t('land.accuracy')}
