@@ -24,10 +24,21 @@ let currentBase = BUILT_IN_BASE;
 export const API_BASE_DEFAULT = BUILT_IN_BASE;
 export const getApiBase = () => currentBase;
 
+/**
+ * A dev address saved by an earlier build must not survive into a release
+ * install. App data outlives an APK upgrade, so without this a tester who
+ * once pointed at a laptop keeps pointing at it -- and the failure looks
+ * like the server being down.
+ */
+function isDevAddress(url: string) {
+  return /(^|\/\/)(10\.0\.2\.2|localhost|127\.0\.0\.1|0\.0\.0\.0|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url);
+}
+
 export async function loadApiBase() {
   try {
     const saved = await AsyncStorage.getItem(BASE_KEY);
-    if (saved) currentBase = saved;
+    if (saved && !(!__DEV__ && isDevAddress(saved))) currentBase = saved;
+    else if (saved) await AsyncStorage.removeItem(BASE_KEY);
   } catch { /* keep the built-in */ }
   return currentBase;
 }
