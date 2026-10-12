@@ -4,7 +4,7 @@
  * first deploy is green so boots stay fast.
  */
 import { PrismaClient } from '@prisma/client';
-import { ANDHRA_PRADESH, CROPS, PRODUCTS, TAGS, Seed } from './data';
+import { ANDHRA_PRADESH, CROPS, PRODUCTS, Seed } from './data';
 import { loadRecommendations } from './load-recommendations';
 
 const prisma = new PrismaClient();
@@ -45,14 +45,13 @@ export async function seed() {
   const locations = await insertTree(ANDHRA_PRADESH, null);
   for (const c of CROPS) await prisma.crop.upsert({ where: { slug: c.slug }, update: c, create: c });
   for (const p of PRODUCTS) await prisma.fertilizerProduct.upsert({ where: { key: p.key }, update: p, create: p });
-  for (const t of TAGS) await prisma.qrTag.upsert({ where: { code: t.code }, update: t, create: t });
 
   await loadRecommendations(prisma);
 
   const recs = await prisma.nutrientRecommendation.count({ where: { status: 'PUBLISHED' } });
   console.log(
     `seeded: ${locations} locations, ${CROPS.length} crops, ` +
-    `${PRODUCTS.length} fertilizer products, ${TAGS.length} demo qr tags`,
+    `${PRODUCTS.length} fertilizer products`,
   );
   console.log(`published nutrient recommendations: ${recs} (0 is expected until ANGRAU data is loaded)`);
 }
