@@ -149,7 +149,8 @@
     "permBlocked": "Location permission was denied. Turn it on in Settings.",
     "rationaleTitle": "Allow location to measure your land",
     "rationaleBody": "The app follows your phone’s GPS as you walk the boundary, or centres the map on your field so you can draw it.",
-    "rationalePrivacy": "Your field boundaries stay on this phone. They are never sent to us or to anyone else."
+    "rationalePrivacy": "Your field boundaries stay on this phone. They are never sent to us or to anyone else.",
+    "permGrant": "Allow location"
   },
   "tabs": {
     "home": "Home",

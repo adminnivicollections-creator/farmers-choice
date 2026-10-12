@@ -170,7 +170,7 @@ export default function LandScreen({
                 setPerm(r.status === 'granted' ? 'granted' : r.canAskAgain ? 'denied' : 'blocked'))}
         >
           <Text style={s.primaryBtnText}>
-            {perm === 'blocked' ? t('scan.openSettings') : t('scan.permGrant')}
+            {perm === 'blocked' ? t('scan.openSettings') : t('land.permGrant')}
           </Text>
         </Pressable>
         <Pressable onPress={onClose} style={s.ghostBtn}><Text style={s.ghostBtnText}>{t('scan.close')}</Text></Pressable>
