@@ -3,7 +3,15 @@ import { Platform } from 'react-native';
 
 /** 10.0.2.2 is how the Android emulator reaches the host machine's localhost. */
 const DEV_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-const BUILT_IN_BASE = process.env.EXPO_PUBLIC_API_BASE ?? DEV_HOST;
+
+/**
+ * Release builds ship pointing at production. Not a secret -- it is the public
+ * API -- and hardcoding it here means an APK works on any network without
+ * depending on a .env that is deliberately untracked.
+ */
+const PROD_BASE = 'https://farmers-choice-api.onrender.com';
+const FALLBACK = __DEV__ ? DEV_HOST : PROD_BASE;
+const BUILT_IN_BASE = process.env.EXPO_PUBLIC_API_BASE ?? FALLBACK;
 const BASE_KEY = 'fc.apiBase';
 
 /**
