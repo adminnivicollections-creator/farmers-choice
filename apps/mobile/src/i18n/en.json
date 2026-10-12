@@ -108,7 +108,7 @@
   },
   "features": {
     "scan": "Scan QR",
-    "scanSub": "Is this seed or spray genuine?",
+    "scanSub": "See what a QR code contains",
     "land": "Measure land",
     "landSub": "Acres, cents, guntas",
     "fert": "Fertilizer",
