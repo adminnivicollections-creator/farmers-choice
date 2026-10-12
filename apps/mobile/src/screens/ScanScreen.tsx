@@ -234,19 +234,23 @@ function Reticle() {
 function ResultCard({ r }: { r: Resolved }) {
   const { t } = useTranslation();
   const good = r.outcome === 'genuine';
+  // A code we did not issue is simply content: neutral styling, no verdict.
+  const plain = r.outcome === 'not_ours' && !!r.foreign;
   const d = r.detail ?? {};
   return (
-    <View style={[s.result, good ? s.resultGood : s.resultBad]}>
-      <View style={s.resultHead}>
-        <MaterialCommunityIcons
-          name={good ? 'check-decagram' : 'alert-decagram'}
-          size={26}
-          color={good ? color.green : color.danger}
-        />
-        <Text style={[s.resultBadge, { color: good ? color.greenDark : color.danger }]}>
-          {good ? t('scan.genuine') : t(`scan.${r.outcome}`, { defaultValue: r.outcome })}
-        </Text>
-      </View>
+    <View style={[s.result, plain ? s.resultPlain : good ? s.resultGood : s.resultBad]}>
+      {!plain && (
+        <View style={s.resultHead}>
+          <MaterialCommunityIcons
+            name={good ? 'check-decagram' : 'alert-decagram'}
+            size={26}
+            color={good ? color.green : color.danger}
+          />
+          <Text style={[s.resultBadge, { color: good ? color.greenDark : color.danger }]}>
+            {good ? t('scan.genuine') : t(`scan.${r.outcome}`, { defaultValue: r.outcome })}
+          </Text>
+        </View>
+      )}
 
       {good && <Text style={s.resultName}>{d.productName ?? d.equipmentName}</Text>}
       {good && r.type === 'PRODUCT_BATCH' && (
@@ -402,7 +406,8 @@ const s = StyleSheet.create({
   resultBadge: { ...type.label, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
   resultName: { ...type.title, color: color.ink },
   resultWarn: { ...type.label, color: color.danger, marginTop: space.xs },
-  foreign: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e5e3df' },
+  resultPlain: { borderColor: '#e5e3df', backgroundColor: '#fff' },
+  foreign: { marginTop: 0 },
   foreignKind: { fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: '#6b6b6b', marginBottom: 6 },
   foreignHost: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 2 },
   foreignText: { fontSize: 13, color: '#4a4a4a', lineHeight: 19 },

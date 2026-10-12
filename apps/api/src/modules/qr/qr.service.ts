@@ -42,13 +42,12 @@ export class QrService {
         outcome: 'not_ours',
         action: 'none',
         foreign,
-        warning: {
-          kind: parsed.kind === 'foreign' ? 'foreign_code' : 'unreadable',
-          message:
-            parsed.kind === 'foreign'
-              ? 'This code is not from Farmer’s Choice. We cannot verify it.'
-              : 'This code could not be read.',
-        },
+        // A code that is not ours is the ordinary case, not a fault. Only an
+        // unreadable code is worth saying anything about.
+        warning:
+          parsed.kind === 'foreign'
+            ? undefined
+            : { kind: 'unreadable', message: 'This code could not be read.' },
       };
     }
 
