@@ -15,6 +15,7 @@ import MeasurementPanel from './MeasurementPanel';
 import { useBoundary } from './useBoundary';
 import { SavedMeasurement, buildSaved, saveMeasurement } from './storage';
 import { showInterstitial } from '../../lib/ads';
+import { getApiBase, pingApi } from '../../lib/api';
 
 type Mode = 'draw' | 'walk';
 type PermState = 'checking' | 'rationale' | 'granted' | 'denied' | 'blocked';
@@ -35,6 +36,8 @@ export default function LandScreen({
   const [perm, setPerm] = useState<PermState>('checking');
   const [here, setHere] = useState<(LatLng & { accuracy: number | null }) | null>(null);
   const [mode, setMode] = useState<Mode>('draw');
+  /** null = not checked yet. Offline, satellite tiles cannot load at all. */
+  const [online, setOnline] = useState<boolean | null>(null);
   const [unit, setUnit] = useState<AreaUnit>('acre'); // what a Guntur farmer actually thinks in
   const [walking, setWalking] = useState(false);
   const [naming, setNaming] = useState(false);
@@ -55,6 +58,19 @@ export default function LandScreen({
     })();
     return () => { watcher.current?.remove(); };
   }, []);
+
+  useEffect(() => {
+    if (perm !== 'granted') return;
+    let alive = true;
+    pingApi(getApiBase()).then((ok) => {
+      if (!alive) return;
+      setOnline(ok);
+      // Without tiles the map is a blank void and 'draw' is unusable, so
+      // start in the mode that still works instead of looking broken.
+      if (!ok) setMode('walk');
+    });
+    return () => { alive = false; };
+  }, [perm]);
 
   useEffect(() => {
     if (perm !== 'granted') return;
@@ -180,6 +196,13 @@ export default function LandScreen({
 
   return (
     <View style={s.root}>
+      {online === false && (
+        <View style={[s.offlineBar, { top: insets.top + 76 }]}>
+          <MaterialCommunityIcons name="wifi-off" size={16} color="#7A4B00" />
+          <Text style={s.offlineText}>{t('land.offline')}</Text>
+        </View>
+      )}
+
       <MapView
         ref={map}
         provider={PROVIDER_GOOGLE}
@@ -400,6 +423,11 @@ const s = StyleSheet.create({
   },
 
   permTitle: { ...type.title, color: color.ink, textAlign: 'center' },
+  offlineBar: { position: 'absolute', left: space.lg, right: space.lg, zIndex: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFF3D6', borderColor: '#E8C77A', borderWidth: 1,
+    borderRadius: radius.md, paddingVertical: 10, paddingHorizontal: 12 },
+  offlineText: { flex: 1, color: '#7A4B00', fontSize: 13, lineHeight: 18 },
   permPrivacy: { marginTop: space.sm, textAlign: 'center', color: color.inkMuted, fontSize: 13, lineHeight: 19 },
   permBody: { ...type.body, color: color.inkMuted, textAlign: 'center' },
   primaryBtn: {

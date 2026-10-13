@@ -101,7 +101,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
                 color={weather ? color.star : color.inkFaint}
               />
               <Text style={s.metaText}>
-                {weather ? `${weather.tempC}°C · ${weather.label}` : '—'}
+                {weather ? `${weather.tempC}°C · ${t(weather.labelKey)}` : '—'}
               </Text>
             </View>
           </View>
@@ -173,7 +173,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
             iconColor={color.star}
             label={t('home.weather')}
             value={weather ? `${weather.tempC}°C` : '—'}
-            note={weather ? weather.label : t('home.noWeather')}
+            note={weather ? t(weather.labelKey) : t('home.noWeather')}
           />
           <StatCard
             icon="water"

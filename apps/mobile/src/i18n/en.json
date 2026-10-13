@@ -150,7 +150,8 @@
     "rationaleTitle": "Allow location to measure your land",
     "rationaleBody": "The app follows your phone’s GPS as you walk the boundary, or centres the map on your field so you can draw it.",
     "rationalePrivacy": "Your field boundaries stay on this phone. They are never sent to us or to anyone else.",
-    "permGrant": "Allow location"
+    "permGrant": "Allow location",
+    "offline": "No internet. The map picture cannot load, but Walk & measure still works — GPS does not need internet."
   },
   "tabs": {
     "home": "Home",
@@ -212,5 +213,17 @@
     "reachable": "Server reachable ✓",
     "unreachable": "Could not reach the server ✗",
     "serverHint": "Default: {{base}}"
+  },
+  "weather": {
+    "clear": "Clear",
+    "sunny": "Sunny",
+    "cloudy": "Cloudy",
+    "fog": "Fog",
+    "drizzle": "Drizzle",
+    "rain": "Rain",
+    "snow": "Snow",
+    "showers": "Showers",
+    "snowShowers": "Snow showers",
+    "thunderstorm": "Thunderstorm"
   }
 }
