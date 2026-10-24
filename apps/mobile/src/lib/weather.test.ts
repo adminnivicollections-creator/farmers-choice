@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { daysFrom, describe, rainAlert } from './weather';
+import { daysFrom, daysFromOwm, describe, owmToWmo, rainAlert } from './weather';
 
 test('the icon follows the real weather, not a fixed sun', () => {
   assert.equal(describe(0, true).icon, 'weather-sunny');
@@ -44,4 +44,33 @@ test('heavy rain later in the week is still flagged', () => {
   const week = { time: ['d0','d1','d2','d3','d4'], weather_code: [51, 51, 3, 81, 95],
     precipitation_sum: [0.9, 0.1, 0, 6.9, 153], precipitation_probability_max: [38, 29, 4, 51, 71] };
   assert.equal(rainAlert(daysFrom(week))!.date, 'd4');
+});
+
+test('OpenWeather condition ids map onto the same labels and icons', () => {
+  assert.equal(describe(owmToWmo(800), true).icon, 'weather-sunny');
+  assert.equal(describe(owmToWmo(804), true).labelKey, 'weather.cloudy');
+  assert.equal(describe(owmToWmo(501), true).labelKey, 'weather.rain');
+  assert.equal(describe(owmToWmo(211), true).labelKey, 'weather.thunderstorm');
+  assert.equal(describe(owmToWmo(721), true).labelKey, 'weather.fog');   // haze
+});
+
+test('3-hourly OpenWeather slots become local days with summed rain', () => {
+  const ist = 19800; // +05:30
+  const at = (iso: string) => Date.parse(iso) / 1000 - ist;  // local time -> UTC epoch
+  const fc = { city: { timezone: ist }, list: [
+    { dt: at('2026-10-28T02:00:00Z'), weather: [{ id: 500 }], rain: { '3h': 2.5 }, pop: 0.4 },
+    { dt: at('2026-10-28T23:00:00Z'), weather: [{ id: 211 }], rain: { '3h': 40 }, pop: 0.9 },
+    { dt: at('2026-10-29T01:00:00Z'), weather: [{ id: 800 }], pop: 0 },
+  ] };
+  const days = daysFromOwm(fc);
+  assert.deepEqual(days.map((d) => d.date), ['2026-10-28', '2026-10-29']);
+  assert.equal(days[0].rainMm, 42.5);
+  assert.equal(days[0].rainChance, 90);
+  assert.equal(days[0].icon, 'weather-lightning-rainy');   // worst of the day wins
+  assert.equal(days[1].rainMm, 0);
+});
+
+test('missing or broken forecast gives no days, not invented ones', () => {
+  assert.deepEqual(daysFromOwm(null), []);
+  assert.deepEqual(daysFromOwm({ list: [{ dt: 'x' }] }), []);
 });
