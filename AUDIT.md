@@ -374,3 +374,16 @@ New tests are in `apps/api/src/modules/auth/auth.service.test.ts`. They run agai
 - The crop-recommendation flow (`Results.tsx`, `states.ts`) and the app's calls to the `/v1/fertilizer/*` API were removed. The API and the `@fc/fert` engine remain on the server, unused by the app.
 - Tests: `apps/mobile/src/features/fertilizer/dose.test.ts`.
 - Verified on the emulator with the release APK: Urea, 50 kg/acre, 2.5 acres gives 125 kg = 2 × 45 kg + 35 kg.
+
+### Fertilizer by crop (v1.0.3)
+
+- **How it works:** pick the crop (plus the zone for paddy, or irrigated/rainfed for jowar) and enter the land size. The app shows DAP, urea and MOP per acre and for the whole field, plus bags to buy.
+- **Where the figures come from:** `src/features/fertilizer/recommendations.ts`. Each row cites its document and page:
+  - ANGRAU Vyavasaya Panchangam figures, as reproduced in the CESS March 2026 report, Tables 3.12 and 3.13 (p.59): paddy by zone, maize, ragi, red gram, black gram.
+  - ICAR Kharif Agro-Advisory 2025, Andhra Pradesh chapter (pp.9, 12): jowar, sugarcane, sesame.
+- **Not verified yet:** every row is `verified: false` and shows "not yet checked by our agriculture expert" until an agronomist checks it against the source page.
+- **Left out:**
+  - Cotton, chilli, groundnut, turmeric: no official figure found.
+  - Paddy in the scarce-rainfall zone: 240 kg N looks like a misprint.
+  - Bengal gram: the two sources disagree.
+- **Verified on the emulator** (release APK, Telugu): paddy, Krishna zone, 2.5 acres gives DAP 132 kg (3 bags), urea 124–146 kg (4 bags), MOP 67–101 kg (3 bags), matching the unit tests.

@@ -4,36 +4,38 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { LandUnit, doseFor, parseNum } from './dose';
-
-/** Standard Indian bag sizes. Urea has been sold in 45 kg bags since 2018. */
-const PRODUCTS: { key: string; bagKg: number }[] = [
-  { key: 'urea', bagKg: 45 },
-  { key: 'dap', bagKg: 50 },
-  { key: 'mop', bagKg: 50 },
-  { key: 'ssp', bagKg: 50 },
-  { key: 'complex', bagKg: 50 },
-];
+import { LandUnit, bagsFor, parseNum, toAcres } from './dose';
+import { RECS, Range, productsPerAcre } from './recommendations';
 
 const UNITS: LandUnit[] = ['acre', 'gunta', 'cent', 'hectare'];
+const CROPS = [...new Set(RECS.map((r) => r.crop))];
+
+/** Urea has been sold in 45 kg bags since 2018; DAP and MOP in 50 kg. */
+const BAGS = { dap: 50, urea: 45, mop: 50 } as const;
+
+const kg = ([lo, hi]: Range, times = 1) => {
+  const a = Math.round(lo * times), b = Math.round(hi * times);
+  return a === b ? `${a} kg` : `${a}–${b} kg`;
+};
 
 /**
- * Simple calculator: product, dose per acre, land -> total kg and bags.
- * Works offline. The dose comes from the farmer (soil card / agriculture
- * officer); the app only does the arithmetic.
+ * Pick the crop and enter the land: the app says how much DAP, urea and MOP
+ * to use, from the official recommendation for Andhra Pradesh. Works offline.
  */
 export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const [product, setProduct] = useState('urea');
-  const [bagKg, setBagKg] = useState(45);
-  const [dose, setDose] = useState('');
+  const [crop, setCrop] = useState<string | null>(null);
+  const [variant, setVariant] = useState<string | null>(null);
   const [land, setLand] = useState('');
   const [unit, setUnit] = useState<LandUnit>('acre');
 
-  const result = doseFor(parseNum(dose), parseNum(land), unit, bagKg);
-  const bad = (s: string) => s.trim().length > 0 && !(parseNum(s) > 0);
+  const variants = RECS.filter((r) => r.crop === crop && r.variant).map((r) => r.variant!);
+  const rec = RECS.find((r) => r.crop === crop && (r.variant ?? null) === (variants.length ? variant : null));
+  const acres = parseNum(land) > 0 ? toAcres(parseNum(land), unit) : null;
+  const perAcre = rec ? productsPerAcre(rec) : null;
+  const bad = land.trim().length > 0 && acres == null;
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -49,31 +51,26 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl, gap: space.xl }}
       >
-        <Step n={1} icon="sack" label={t('fert.product')}>
+        <Step n={1} icon="sprout" label={t('fert.crop')}>
           <Chips
-            options={PRODUCTS.map((p) => [p.key, t(`fert.p_${p.key}`)])}
-            value={product}
-            onChange={(k) => {
-              setProduct(k);
-              setBagKg(PRODUCTS.find((p) => p.key === k)!.bagKg);
+            options={CROPS.map((c) => [c, t(`fert.crop_${c}`)])}
+            value={crop}
+            onChange={(c) => {
+              setCrop(c);
+              // Paddy defaults to the Krishna zone (Guntur, the pilot district).
+              setVariant(RECS.find((r) => r.crop === c && r.variant)?.variant ?? null);
             }}
           />
+          {variants.length > 0 && (
+            <Chips
+              options={variants.map((v) => [v, t(`fert.zone_${v}`)])}
+              value={variant}
+              onChange={setVariant}
+            />
+          )}
         </Step>
 
-        <Step n={2} icon="scale" label={t('fert.dose')}>
-          <TextInput
-            value={dose}
-            onChangeText={setDose}
-            keyboardType="decimal-pad"
-            placeholder="50"
-            placeholderTextColor={color.inkFaint}
-            style={s.input}
-          />
-          {bad(dose) && <Text style={s.bad}>{t('fert.badArea')}</Text>}
-          <Text style={s.note}>{t('fert.doseNote')}</Text>
-        </Step>
-
-        <Step n={3} icon="ruler-square" label={t('fert.land')}>
+        <Step n={2} icon="ruler-square" label={t('fert.land')}>
           <TextInput
             value={land}
             onChangeText={setLand}
@@ -87,27 +84,37 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
             value={unit}
             onChange={(v) => setUnit(v as LandUnit)}
           />
-          {bad(land) && <Text style={s.bad}>{t('fert.badArea')}</Text>}
+          {bad && <Text style={s.bad}>{t('fert.badArea')}</Text>}
         </Step>
 
-        <Step n={4} icon="package-variant" label={t('fert.bagSize')}>
-          <Chips
-            options={[[ '45', '45 kg' ], [ '50', '50 kg' ]]}
-            value={String(bagKg)}
-            onChange={(v) => setBagKg(Number(v))}
-          />
-        </Step>
-
-        {result && (
+        {rec && perAcre && (
           <View style={s.result} accessibilityLiveRegion="polite">
-            <Text style={s.resultLabel}>{t('fert.total')}</Text>
-            <Text style={s.resultBig}>{result.totalKg} kg</Text>
-            <Text style={s.resultLabel}>{t('fert.bagsLabel')}</Text>
-            <Text style={s.resultBags}>
-              {result.bags} × {bagKg} kg{result.looseKg > 0 ? `  +  ${result.looseKg} kg` : ''}
-            </Text>
+            <View style={s.row}>
+              <Text style={[s.cell, s.cellHead, { flex: 1.2 }]}>{t('fert.product')}</Text>
+              <Text style={[s.cell, s.cellHead]}>{t('fert.perAcre')}</Text>
+              {acres != null && <Text style={[s.cell, s.cellHead]}>{t('fert.yourLand')}</Text>}
+            </View>
+            {(['dap', 'urea', 'mop'] as const).filter((k) => perAcre[k][1] > 0).map((k) => (
+              <View key={k} style={s.row}>
+                <Text style={[s.cell, s.product, { flex: 1.2 }]}>{t(`fert.p_${k}`)}</Text>
+                <Text style={s.cell}>{kg(perAcre[k])}</Text>
+                {acres != null && (
+                  <Text style={s.cell}>
+                    {kg(perAcre[k], acres)}{'\n'}
+                    <Text style={s.bags}>
+                      {t('fert.bagsToBuy', { count: bagsFor(perAcre[k][1] * acres, BAGS[k]), size: BAGS[k] })}
+                    </Text>
+                  </Text>
+                )}
+              </View>
+            ))}
+            <Text style={s.note}>{t('fert.soilTestFirst')}</Text>
+            <Text style={s.source}>{t('fert.sourceLabel')}: {rec.source}</Text>
+            {!rec.verified && <Text style={s.unverified}>{t('fert.unverified')}</Text>}
           </View>
         )}
+
+        <Text style={s.note}>{t('fert.missingCrops')}</Text>
       </ScrollView>
     </View>
   );
@@ -181,10 +188,14 @@ const s = StyleSheet.create({
   chipTextOn: { color: '#fff', fontWeight: '700' },
 
   result: {
-    gap: space.xs, padding: space.lg, borderRadius: radius.lg,
+    gap: space.sm, padding: space.lg, borderRadius: radius.lg,
     backgroundColor: color.greenSoft, borderWidth: 2, borderColor: color.green,
   },
-  resultLabel: { ...type.caption, color: color.inkMuted },
-  resultBig: { ...type.display, fontSize: 36, color: color.greenDark },
-  resultBags: { ...type.title, color: color.ink },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  cell: { flex: 1, ...type.body, color: color.ink },
+  cellHead: { ...type.caption, color: color.inkMuted },
+  product: { fontWeight: '700', color: color.greenDark },
+  bags: { ...type.caption, color: color.inkMuted },
+  source: { ...type.caption, color: color.inkMuted },
+  unverified: { ...type.caption, color: color.danger, fontWeight: '700' },
 });
