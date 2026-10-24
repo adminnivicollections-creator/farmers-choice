@@ -366,3 +366,11 @@ New tests are in `apps/api/src/modules/auth/auth.service.test.ts`. They run agai
   - **Scanner:** asks for the camera as soon as it opens.
   - **Land measurement:** keeps its explanation screen before asking.
 - **Verified on the emulator:** the location prompt, the deny path with its link, the grant path showing "Guntur · 27°C clear (moon)" against Open-Meteo's `27.3°C, code 0, is_day 0`, and the camera prompt.
+
+### Simple fertilizer calculator (v1.0.2)
+
+- The calculator is now **product × dose per acre × land = total kg and bags**. Urea uses 45 kg bags; DAP, MOP, SSP and complexes use 50 kg; the bag size can be changed. The farmer enters the dose from their soil card or agriculture officer.
+- It works offline and calls no server.
+- The crop-recommendation flow (`Results.tsx`, `states.ts`) and the app's calls to the `/v1/fertilizer/*` API were removed. The API and the `@fc/fert` engine remain on the server, unused by the app.
+- Tests: `apps/mobile/src/features/fertilizer/dose.test.ts`.
+- Verified on the emulator with the release APK: Urea, 50 kg/acre, 2.5 acres gives 125 kg = 2 × 45 kg + 35 kg.

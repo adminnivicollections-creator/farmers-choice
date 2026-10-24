@@ -204,7 +204,17 @@
     "generalRec": "General regional recommendation",
     "day": "Day",
     "whyUnavailable": "We do not show a recommendation we cannot trace to an authority.",
-    "badArea": "Enter a valid number"
+    "badArea": "Enter a valid number",
+    "product": "Fertilizer",
+    "dose": "Dose per acre (kg)",
+    "doseNote": "Use the dose from your soil health card or agriculture officer.",
+    "bagSize": "Bag size",
+    "bagsLabel": "Bags",
+    "p_urea": "Urea",
+    "p_dap": "DAP",
+    "p_mop": "MOP",
+    "p_ssp": "SSP",
+    "p_complex": "Complex (NPK)"
   },
   "settings": {
     "language": "Language",

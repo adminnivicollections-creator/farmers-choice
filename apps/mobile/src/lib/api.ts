@@ -191,11 +191,6 @@ export const api = {
 
   me: () => auth('/v1/me'),
 
-  fertCrops: () => raw_('/v1/fertilizer/crops'),
-  fertProducts: () => raw_('/v1/fertilizer/products'),
-  fertCalculate: (body: Record<string, unknown>) =>
-    raw_('/v1/fertilizer/calculate', { method: 'POST', body: JSON.stringify(body) }),
-
   /**
    * Raw scanned string goes to the server; the server decides what it means.
    * No login -- an anonymous install id is sent so the counterfeit heuristic can

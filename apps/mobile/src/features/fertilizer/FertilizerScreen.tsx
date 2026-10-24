@@ -1,171 +1,114 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
-} from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { api } from '../../lib/api';
-import { INDIAN_STATES } from './states';
-import Results from './Results';
+import { LandUnit, doseFor, parseNum } from './dose';
 
-export type Season = 'KHARIF' | 'RABI' | 'SUMMER' | 'PERENNIAL';
-export type Irrigation = 'IRRIGATED' | 'RAINFED';
-export type AreaUnit = 'acre' | 'hectare' | 'gunta' | 'cent';
+/** Standard Indian bag sizes. Urea has been sold in 45 kg bags since 2018. */
+const PRODUCTS: { key: string; bagKg: number }[] = [
+  { key: 'urea', bagKg: 45 },
+  { key: 'dap', bagKg: 50 },
+  { key: 'mop', bagKg: 50 },
+  { key: 'ssp', bagKg: 50 },
+  { key: 'complex', bagKg: 50 },
+];
 
-type Crop = { slug: string; nameEn: string; nameTe: string; nameHi: string; hasPublishedRecommendation: boolean };
+const UNITS: LandUnit[] = ['acre', 'gunta', 'cent', 'hectare'];
 
+/**
+ * Simple calculator: product, dose per acre, land -> total kg and bags.
+ * Works offline. The dose comes from the farmer (soil card / agriculture
+ * officer); the app only does the arithmetic.
+ */
 export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const [crops, setCrops] = useState<Crop[] | null>(null);
-  const [state, setState] = useState<string | null>(null);
-  const [district, setDistrict] = useState('');
-  const [crop, setCrop] = useState<Crop | null>(null);
-  const [season, setSeason] = useState<Season | null>(null);
-  const [irrigation, setIrrigation] = useState<Irrigation | null>(null);
-  const [area, setArea] = useState('');
-  const [unit, setUnit] = useState<AreaUnit>('acre');
-  const [hasSoilTest, setHasSoilTest] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [picker, setPicker] = useState<'state' | 'crop' | null>(null);
+  const [product, setProduct] = useState('urea');
+  const [bagKg, setBagKg] = useState(45);
+  const [dose, setDose] = useState('');
+  const [land, setLand] = useState('');
+  const [unit, setUnit] = useState<LandUnit>('acre');
 
-  useEffect(() => { api.fertCrops().then(setCrops).catch(() => setCrops([])); }, []);
-
-  const cropName = (c: Crop) =>
-    (i18n.language === 'te' ? c.nameTe : i18n.language === 'hi' ? c.nameHi : c.nameEn) || c.nameEn;
-
-  const areaNum = Number(area);
-  const areaValid = Number.isFinite(areaNum) && areaNum > 0;
-  const ready = Boolean(state && crop && season && irrigation && areaValid && hasSoilTest !== null);
-
-  async function calculate() {
-    setBusy(true);
-    try {
-      setResult(await api.fertCalculate({
-        state: state!, district: district.trim() || undefined,
-        cropSlug: crop!.slug, season: season!, irrigation: irrigation!,
-        areaValue: areaNum, areaUnit: unit,
-      }));
-    } catch {
-      setResult({ available: false, reason: 'error', message: t('common.error'), suggestions: [] });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (result) {
-    return (
-      <Results
-        result={result}
-        crop={crop ? cropName(crop) : ''}
-        area={`${area} ${t(`fert.unit_${unit}`)}`}
-        hasSoilTest={!!hasSoilTest}
-        onBack={() => setResult(null)}
-        onClose={onClose}
-      />
-    );
-  }
+  const result = doseFor(parseNum(dose), parseNum(land), unit, bagKg);
+  const bad = (s: string) => s.trim().length > 0 && !(parseNum(s) > 0);
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.head}>
-        <Pressable onPress={onClose} hitSlop={12}>
+        <Pressable onPress={onClose} hitSlop={12} accessibilityLabel={t('scan.close')}>
           <MaterialCommunityIcons name="arrow-left" size={28} color={color.ink} />
         </Pressable>
         <Text style={s.title}>{t('features.fert')}</Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }}
-        contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl, gap: space.xl }}>
-        <Step n={1} icon="map-marker" label={t('fert.location')}>
-          <Select value={state ?? t('fert.pickState')} on={!!state} onPress={() => setPicker('state')} />
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl, gap: space.xl }}
+      >
+        <Step n={1} icon="sack" label={t('fert.product')}>
+          <Chips
+            options={PRODUCTS.map((p) => [p.key, t(`fert.p_${p.key}`)])}
+            value={product}
+            onChange={(k) => {
+              setProduct(k);
+              setBagKg(PRODUCTS.find((p) => p.key === k)!.bagKg);
+            }}
+          />
+        </Step>
+
+        <Step n={2} icon="scale" label={t('fert.dose')}>
           <TextInput
-            value={district}
-            onChangeText={setDistrict}
-            placeholder={t('fert.districtOptional')}
+            value={dose}
+            onChangeText={setDose}
+            keyboardType="decimal-pad"
+            placeholder="50"
             placeholderTextColor={color.inkFaint}
             style={s.input}
           />
-        </Step>
-
-        <Step n={2} icon="sprout" label={t('fert.crop')}>
-          <Select
-            value={crop ? cropName(crop) : t('fert.pickCrop')}
-            on={!!crop}
-            onPress={() => setPicker('crop')}
-          />
-          <Chips
-            options={[['KHARIF', t('fert.kharif')], ['RABI', t('fert.rabi')], ['SUMMER', t('fert.summer')]]}
-            value={season}
-            onChange={(v) => setSeason(v as Season)}
-          />
-          <Chips
-            options={[['IRRIGATED', t('fert.irrigated')], ['RAINFED', t('fert.rainfed')]]}
-            value={irrigation}
-            onChange={(v) => setIrrigation(v as Irrigation)}
-          />
+          {bad(dose) && <Text style={s.bad}>{t('fert.badArea')}</Text>}
+          <Text style={s.note}>{t('fert.doseNote')}</Text>
         </Step>
 
         <Step n={3} icon="ruler-square" label={t('fert.land')}>
-          <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <TextInput
-              value={area}
-              onChangeText={setArea}
-              keyboardType="decimal-pad"
-              placeholder="2.5"
-              placeholderTextColor={color.inkFaint}
-              style={[s.input, { flex: 1 }]}
-            />
-          </View>
+          <TextInput
+            value={land}
+            onChangeText={setLand}
+            keyboardType="decimal-pad"
+            placeholder="2.5"
+            placeholderTextColor={color.inkFaint}
+            style={s.input}
+          />
           <Chips
-            options={(['acre', 'hectare', 'gunta', 'cent'] as AreaUnit[]).map((u) => [u, t(`fert.unit_${u}`)])}
+            options={UNITS.map((u) => [u, t(`fert.unit_${u}`)])}
             value={unit}
-            onChange={(v) => setUnit(v as AreaUnit)}
+            onChange={(v) => setUnit(v as LandUnit)}
           />
-          {area.length > 0 && !areaValid && <Text style={s.bad}>{t('fert.badArea')}</Text>}
-          <Text style={s.note}>{t('fert.bighaNote')}</Text>
+          {bad(land) && <Text style={s.bad}>{t('fert.badArea')}</Text>}
         </Step>
 
-        <Step n={4} icon="flask-outline" label={t('fert.soilTest')}>
+        <Step n={4} icon="package-variant" label={t('fert.bagSize')}>
           <Chips
-            options={[['yes', t('fert.haveSoilTest')], ['no', t('fert.noSoilTest')]]}
-            value={hasSoilTest === null ? null : hasSoilTest ? 'yes' : 'no'}
-            onChange={(v) => setHasSoilTest(v === 'yes')}
+            options={[[ '45', '45 kg' ], [ '50', '50 kg' ]]}
+            value={String(bagKg)}
+            onChange={(v) => setBagKg(Number(v))}
           />
-          {hasSoilTest === false && <Text style={s.note}>{t('fert.noSoilTestNote')}</Text>}
-          {hasSoilTest === true && <Text style={s.note}>{t('fert.soilTestPending')}</Text>}
         </Step>
+
+        {result && (
+          <View style={s.result} accessibilityLiveRegion="polite">
+            <Text style={s.resultLabel}>{t('fert.total')}</Text>
+            <Text style={s.resultBig}>{result.totalKg} kg</Text>
+            <Text style={s.resultLabel}>{t('fert.bagsLabel')}</Text>
+            <Text style={s.resultBags}>
+              {result.bags} × {bagKg} kg{result.looseKg > 0 ? `  +  ${result.looseKg} kg` : ''}
+            </Text>
+          </View>
+        )}
       </ScrollView>
-
-      <View style={[s.footer, { paddingBottom: insets.bottom + space.md }]}>
-        <Pressable
-          onPress={calculate}
-          disabled={!ready || busy}
-          style={[s.cta, (!ready || busy) && s.ctaOff]}
-          accessibilityState={{ disabled: !ready || busy }}
-        >
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaText}>{t('fert.calculate')}</Text>}
-        </Pressable>
-      </View>
-
-      <PickerModal
-        visible={picker === 'state'}
-        title={t('fert.pickState')}
-        items={INDIAN_STATES.map((x) => ({ key: x, label: x }))}
-        onPick={(k) => { setState(k); setPicker(null); }}
-        onClose={() => setPicker(null)}
-      />
-      <PickerModal
-        visible={picker === 'crop'}
-        title={t('fert.pickCrop')}
-        items={(crops ?? []).map((c) => ({ key: c.slug, label: cropName(c) }))}
-        onPick={(k) => { setCrop((crops ?? []).find((c) => c.slug === k) ?? null); setPicker(null); }}
-        onClose={() => setPicker(null)}
-      />
     </View>
   );
 }
@@ -182,15 +125,6 @@ function Step({
       </View>
       {children}
     </View>
-  );
-}
-
-function Select({ value, on, onPress }: { value: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={s.select} accessibilityRole="button">
-      <Text style={[s.selectText, !on && { color: color.inkFaint }]}>{value}</Text>
-      <MaterialCommunityIcons name="chevron-down" size={22} color={color.inkMuted} />
-    </Pressable>
   );
 }
 
@@ -217,34 +151,6 @@ function Chips({
   );
 }
 
-function PickerModal({
-  visible, title, items, onPick, onClose,
-}: {
-  visible: boolean; title: string;
-  items: { key: string; label: string }[];
-  onPick: (k: string) => void; onClose: () => void;
-}) {
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={s.modal}>
-        <View style={s.modalHead}>
-          <Pressable onPress={onClose} hitSlop={12}>
-            <MaterialCommunityIcons name="close" size={26} color={color.ink} />
-          </Pressable>
-          <Text style={s.title}>{title}</Text>
-        </View>
-        <ScrollView>
-          {items.map((it) => (
-            <Pressable key={it.key} onPress={() => onPick(it.key)} style={s.modalRow}>
-              <Text style={s.modalRowText}>{it.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.surface },
   head: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
@@ -258,12 +164,6 @@ const s = StyleSheet.create({
   stepNumText: { ...type.caption, fontWeight: '700', color: color.greenDark },
   stepLabel: { ...type.heading, color: color.ink },
 
-  select: {
-    minHeight: 56, borderWidth: 1.5, borderColor: color.line, borderRadius: radius.md,
-    paddingHorizontal: space.lg, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', backgroundColor: color.bg,
-  },
-  selectText: { ...type.body, color: color.ink },
   input: {
     minHeight: 56, borderWidth: 1.5, borderColor: color.line, borderRadius: radius.md,
     paddingHorizontal: space.lg, ...type.body, color: color.ink, backgroundColor: color.bg,
@@ -280,21 +180,11 @@ const s = StyleSheet.create({
   chipText: { ...type.label, color: color.ink },
   chipTextOn: { color: '#fff', fontWeight: '700' },
 
-  // Normal flex sibling, NOT absolute: an overlaying footer hid step 4 and
-  // swallowed taps meant for the soil-test chips.
-  footer: {
-    padding: space.lg, backgroundColor: color.surface,
-    borderTopWidth: 1, borderTopColor: color.line,
+  result: {
+    gap: space.xs, padding: space.lg, borderRadius: radius.lg,
+    backgroundColor: color.greenSoft, borderWidth: 2, borderColor: color.green,
   },
-  cta: {
-    minHeight: 60, borderRadius: radius.md, backgroundColor: color.green,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ctaOff: { opacity: 0.4 },
-  ctaText: { ...type.title, color: '#fff' },
-
-  modal: { flex: 1, backgroundColor: color.surface, paddingTop: 48 },
-  modalHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
-  modalRow: { minHeight: 60, justifyContent: 'center', paddingHorizontal: space.lg, borderBottomWidth: 1, borderBottomColor: color.line },
-  modalRowText: { ...type.body, color: color.ink },
+  resultLabel: { ...type.caption, color: color.inkMuted },
+  resultBig: { ...type.display, fontSize: 36, color: color.greenDark },
+  resultBags: { ...type.title, color: color.ink },
 });
