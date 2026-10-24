@@ -58,6 +58,9 @@ one-to-three week lead time and nothing in code can shortcut it.
 
 ## Tests
 
-    npm test                 # OTP logic
+    npm test                 # every workspace; builds @fc/fert first
     cd apps/api && npx tsc --noEmit
     cd apps/mobile && npx tsc --noEmit
+
+The auth tests run against Postgres and skip themselves when `DATABASE_URL`
+is not set -- run `npm run db:up` and export it to include them.
