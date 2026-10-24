@@ -139,6 +139,30 @@ async function raw(path: string, init: RequestInit = {}, token?: string | null) 
   return body;
 }
 
+/**
+ * One refresh at a time. Refresh tokens are single-use, so two calls that hit
+ * 401 together must share one refresh -- otherwise the second presents a token
+ * the first already spent and the user is logged out.
+ */
+let refreshing: Promise<string> | null = null;
+
+function refreshAccess(): Promise<string> {
+  refreshing ??= (async () => {
+    const refreshToken = await AsyncStorage.getItem(REFRESH);
+    if (!refreshToken) throw new ApiError(401, 'Session expired. Sign in again.');
+    try {
+      const next = await raw('/v1/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) });
+      await saveTokens(next.accessToken, next.refreshToken);
+      return next.accessToken as string;
+    } catch (e) {
+      // A rejected refresh token is dead for good; don't keep presenting it.
+      if (e instanceof ApiError && e.status === 401) await clearTokens();
+      throw e;
+    }
+  })().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
 /** Authenticated call with one transparent refresh-and-retry on 401. */
 async function auth(path: string, init: RequestInit = {}): Promise<any> {
   const token = await getAccess();
@@ -146,11 +170,7 @@ async function auth(path: string, init: RequestInit = {}): Promise<any> {
     return await raw(path, init, token);
   } catch (e) {
     if (!(e instanceof ApiError) || e.status !== 401) throw e;
-    const refreshToken = await AsyncStorage.getItem(REFRESH);
-    if (!refreshToken) throw e;
-    const next = await raw('/v1/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken }) });
-    await saveTokens(next.accessToken, next.refreshToken);
-    return raw(path, init, next.accessToken);
+    return raw(path, init, await refreshAccess());
   }
 }
 

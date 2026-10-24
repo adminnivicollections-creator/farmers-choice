@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /** Swap the delivery channel without touching auth logic. */
@@ -13,6 +13,23 @@ export class ConsoleOtpSender extends OtpSender {
   async send(phone: string, code: string) {
     this.log.warn(`DEV OTP for ${phone} is ${code} (console provider — not sent by SMS)`);
   }
+}
+
+/**
+ * Production without a real SMS provider. The console sender would print every
+ * code to the server log, where anyone with log access could sign in as anyone,
+ * so sign-in is refused instead. The rest of the API keeps serving.
+ */
+export class DisabledOtpSender extends OtpSender {
+  async send(): Promise<void> {
+    throw new ServiceUnavailableException('Sign-in is not available yet.');
+  }
+}
+
+export function otpSenderFor(config: ConfigService): OtpSender {
+  if (config.get('OTP_PROVIDER') === 'msg91') return new Msg91OtpSender(config);
+  if (config.get('NODE_ENV') === 'production') return new DisabledOtpSender();
+  return new ConsoleOtpSender();
 }
 
 /**

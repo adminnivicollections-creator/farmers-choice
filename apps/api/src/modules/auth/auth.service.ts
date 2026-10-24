@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma.service';
 import {
+  OTP_MAX_ATTEMPTS,
   OTP_MAX_PER_WINDOW,
   OTP_TTL_MS,
   OTP_WINDOW_MS,
@@ -65,20 +66,27 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const result = checkOtp(row, code);
-    if (!result.ok) {
-      if (row) {
-        await this.prisma.otpRequest.update({
-          where: { id: row.id },
-          data: { attempts: { increment: 1 } },
-        });
-      }
-      // One message for every failure: distinguishing "wrong code" from
-      // "no such request" tells an attacker which numbers are registered.
-      throw new UnauthorizedException('That code is not valid. Request a new one.');
-    }
+    // One message for every failure: distinguishing "wrong code" from
+    // "no such request" tells an attacker which numbers are registered.
+    const invalid = new UnauthorizedException('That code is not valid. Request a new one.');
 
-    await this.prisma.otpRequest.update({ where: { id: row!.id }, data: { consumedAt: new Date() } });
+    // Count the attempt BEFORE checking it, and only while under the limit, in
+    // one statement. Read-then-increment let parallel guesses all see
+    // attempts=0 and each get a free try.
+    const counted = row
+      ? await this.prisma.otpRequest.updateMany({
+          where: { id: row.id, consumedAt: null, attempts: { lt: OTP_MAX_ATTEMPTS } },
+          data: { attempts: { increment: 1 } },
+        })
+      : { count: 0 };
+    if (counted.count === 0 || !checkOtp(row, code).ok) throw invalid;
+
+    // Conditional consume: of two parallel correct submissions, only one wins.
+    const consumed = await this.prisma.otpRequest.updateMany({
+      where: { id: row!.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (consumed.count === 0) throw invalid;
 
     const user = await this.prisma.user.upsert({
       where: { phone },
@@ -98,12 +106,23 @@ export class AuthService {
       where: { tokenHash },
       include: { user: { include: { roles: true } } },
     });
-    if (!row || row.revokedAt || row.expiresAt < new Date()) {
-      throw new UnauthorizedException('Session expired. Sign in again.');
+    const expired = new UnauthorizedException('Session expired. Sign in again.');
+    if (!row || row.revokedAt || row.expiresAt < new Date()) throw expired;
+
+    // A suspension must end every session, not just block the next sign-in.
+    if (row.user.blockedAt) {
+      await this.logout(row.userId);
+      throw new UnauthorizedException('This account has been suspended.');
     }
+
     // Rotate: the presented token dies as the new one is minted, so a stolen
-    // refresh token is usable at most once.
-    await this.prisma.refreshToken.update({ where: { id: row.id }, data: { revokedAt: new Date() } });
+    // refresh token is usable at most once. Conditional, so two concurrent
+    // refreshes with the same token can't both mint a session.
+    const rotated = await this.prisma.refreshToken.updateMany({
+      where: { id: row.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (rotated.count === 0) throw expired;
     return this.issueTokens(row.userId, row.user.roles.map((r) => r.role));
   }
 

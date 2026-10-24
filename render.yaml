@@ -21,6 +21,6 @@ services:
       - key: JWT_SECRET
         generateValue: true    # Render generates a strong one
       - key: OTP_PROVIDER
-        value: console         # until DLT registration completes
+        value: console         # in production this disables sign-in (503) until msg91 is set up
       - key: SEED_ON_BOOT
         value: "true"          # set to false after the first successful deploy

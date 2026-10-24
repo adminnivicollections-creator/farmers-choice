@@ -3,7 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { ConsoleOtpSender, Msg91OtpSender, OtpSender } from './otp-sender';
+import { OtpSender, otpSenderFor } from './otp-sender';
 import { PrismaService } from '../../prisma.service';
 
 @Module({
@@ -21,8 +21,7 @@ import { PrismaService } from '../../prisma.service';
     {
       provide: OtpSender,
       inject: [ConfigService],
-      useFactory: (c: ConfigService) =>
-        c.get('OTP_PROVIDER') === 'msg91' ? new Msg91OtpSender(c) : new ConsoleOtpSender(),
+      useFactory: otpSenderFor,
     },
   ],
   exports: [JwtModule],
