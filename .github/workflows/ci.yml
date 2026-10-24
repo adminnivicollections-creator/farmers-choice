@@ -29,9 +29,11 @@ jobs:
       - run: npm -w @fc/api run prisma:generate
       - run: npx prisma migrate deploy
         working-directory: apps/api
+      # @fc/fert resolves through its dist/; nothing type-checks without it.
+      - run: npm -w @fc/fert run build
       - run: npx tsc --noEmit -p tsconfig.json
         working-directory: apps/api
-      - run: npm -w @fc/api run test
+      - run: npm test
 
   mobile:
     runs-on: ubuntu-latest

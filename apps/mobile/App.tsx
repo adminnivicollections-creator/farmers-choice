@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, BackHandler, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { color } from '@fc/tokens';
@@ -31,6 +31,18 @@ export default function App() {
   const showTabs = ['home', 'profile'].includes(step as string);
 
   useEffect(() => { Promise.all([initI18n(), loadApiBase()]).then(() => setStep('splash')); }, []);
+
+  // Android's back button goes back a screen, like every other app. Without
+  // this it closed the whole app from any screen.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step === 'home' || step === 'boot' || step === 'splash') return false; // leave the app
+      setEditing(null);
+      setStep('home');
+      return true;
+    });
+    return () => sub.remove();
+  }, [step]);
 
   if (step === 'boot') {
     return (

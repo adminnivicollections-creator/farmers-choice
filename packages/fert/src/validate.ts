@@ -67,7 +67,11 @@ export function validateRecommendation(
   if (rec.schedule?.length) {
     for (const key of ['n', 'p2o5', 'k2o'] as const) {
       const sum = rec.schedule.reduce((t, s) => t + (s.share?.[key] ?? 0), 0);
-      if (sum > 0 && Math.abs(sum - 1) > 0.01) {
+      if (sum === 0 && (rec.perHectare?.[key] ?? 0) > 0) {
+        // Required but never applied: it, and the product carrying it, would
+        // silently vanish from the timing table.
+        issues.push({ field: `schedule.share.${key}`, problem: 'Required but no stage applies it' });
+      } else if (sum > 0 && Math.abs(sum - 1) > 0.01) {
         issues.push({ field: `schedule.share.${key}`, problem: `Shares add up to ${sum.toFixed(2)}, not 1` });
       }
     }

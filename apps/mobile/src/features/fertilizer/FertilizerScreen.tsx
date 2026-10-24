@@ -1,300 +1,292 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { api } from '../../lib/api';
-import { INDIAN_STATES } from './states';
-import Results from './Results';
+import { tap } from '../../components/feedback';
+import { LandUnit, bagsFor, parseNum, toAcres } from './dose';
+import { RECS, Range, productsPerAcre } from './recommendations';
+import { zoneForDistrict } from './zones';
 
-export type Season = 'KHARIF' | 'RABI' | 'SUMMER' | 'PERENNIAL';
-export type Irrigation = 'IRRIGATED' | 'RAINFED';
-export type AreaUnit = 'acre' | 'hectare' | 'gunta' | 'cent';
+const UNITS: LandUnit[] = ['acre', 'gunta', 'cent', 'hectare'];
+/** One tap of − / + in each unit. */
+const STEP: Record<LandUnit, number> = { acre: 0.5, gunta: 5, cent: 10, hectare: 0.5 };
 
-type Crop = { slug: string; nameEn: string; nameTe: string; nameHi: string; hasPublishedRecommendation: boolean };
+const CROPS: { key: string; icon: string }[] = [
+  { key: 'paddy', icon: 'rice' },
+  { key: 'maize', icon: 'corn' },
+  { key: 'ragi', icon: 'grain' },
+  { key: 'jowar', icon: 'barley' },
+  { key: 'redgram', icon: 'seed-outline' },
+  { key: 'blackgram', icon: 'seed' },
+  { key: 'sugarcane', icon: 'grass' },
+  { key: 'sesame', icon: 'flower-outline' },
+].filter((c) => RECS.some((r) => r.crop === c.key));
 
+/** Urea has been sold in 45 kg bags since 2018; DAP and MOP in 50 kg. */
+const PRODUCTS = [
+  { key: 'dap', bag: 50, bg: '#E6F1FB', ink: '#0C447C' },
+  { key: 'urea', bag: 45, bg: '#EAF3DE', ink: '#27500A' },
+  { key: 'mop', bag: 50, bg: '#FAEEDA', ink: '#633806' },
+] as const;
+
+const kg = ([lo, hi]: Range, times = 1) => {
+  const a = Math.round(lo * times), b = Math.round(hi * times);
+  return a === b ? `${a} kg` : `${a}–${b} kg`;
+};
+
+/**
+ * Pick the crop, set the land: the app says how many bags of DAP, urea and
+ * MOP to buy, from the official recommendation for Andhra Pradesh.
+ */
 export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const [crops, setCrops] = useState<Crop[] | null>(null);
-  const [state, setState] = useState<string | null>(null);
-  const [district, setDistrict] = useState('');
-  const [crop, setCrop] = useState<Crop | null>(null);
-  const [season, setSeason] = useState<Season | null>(null);
-  const [irrigation, setIrrigation] = useState<Irrigation | null>(null);
-  const [area, setArea] = useState('');
-  const [unit, setUnit] = useState<AreaUnit>('acre');
-  const [hasSoilTest, setHasSoilTest] = useState<boolean | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [picker, setPicker] = useState<'state' | 'crop' | null>(null);
+  const [crop, setCrop] = useState<string | null>(null);
+  const [variant, setVariant] = useState<string | null>(null);
+  const [pickVariant, setPickVariant] = useState(false);
+  /** The paddy zone the phone's location points to, when we can tell. */
+  const [autoZone, setAutoZone] = useState<string | null>(null);
+  const [land, setLand] = useState('1');
+  const [unit, setUnit] = useState<LandUnit>('acre');
+  const [details, setDetails] = useState(false);
 
-  useEffect(() => { api.fertCrops().then(setCrops).catch(() => setCrops([])); }, []);
+  // Paddy doses differ by zone. Use the location only if it was already
+  // allowed on Home -- this screen never asks for it.
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!(await Location.getForegroundPermissionsAsync()).granted) return;
+        const pos = await Location.getLastKnownPositionAsync();
+        if (!pos) return;
+        const [addr] = await Location.reverseGeocodeAsync(pos.coords);
+        setAutoZone(zoneForDistrict(addr?.subregion) ?? zoneForDistrict(addr?.city));
+      } catch { /* the farmer picks the zone instead */ }
+    })();
+  }, []);
 
-  const cropName = (c: Crop) =>
-    (i18n.language === 'te' ? c.nameTe : i18n.language === 'hi' ? c.nameHi : c.nameEn) || c.nameEn;
+  const variants = RECS.filter((r) => r.crop === crop && r.variant).map((r) => r.variant!);
+  const rec = RECS.find((r) => r.crop === crop && (r.variant ?? null) === (variants.length ? variant : null));
+  const n = parseNum(land);
+  const acres = n > 0 ? toAcres(n, unit) : null;
+  const perAcre = rec ? productsPerAcre(rec) : null;
 
-  const areaNum = Number(area);
-  const areaValid = Number.isFinite(areaNum) && areaNum > 0;
-  const ready = Boolean(state && crop && season && irrigation && areaValid && hasSoilTest !== null);
+  const chooseCrop = (c: string) => {
+    tap();
+    LayoutAnimation.easeInEaseOut();
+    const vs = RECS.filter((r) => r.crop === c && r.variant).map((r) => r.variant!);
+    setCrop(c);
+    setVariant(vs.length ? (autoZone && vs.includes(autoZone) ? autoZone : vs[0]) : null);
+    // Zone came from the location: show it, don't ask. Otherwise ask.
+    setPickVariant(vs.length > 0 && !(autoZone && vs.includes(autoZone)));
+  };
 
-  async function calculate() {
-    setBusy(true);
-    try {
-      setResult(await api.fertCalculate({
-        state: state!, district: district.trim() || undefined,
-        cropSlug: crop!.slug, season: season!, irrigation: irrigation!,
-        areaValue: areaNum, areaUnit: unit,
-      }));
-    } catch {
-      setResult({ available: false, reason: 'error', message: t('common.error'), suggestions: [] });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (result) {
-    return (
-      <Results
-        result={result}
-        crop={crop ? cropName(crop) : ''}
-        area={`${area} ${t(`fert.unit_${unit}`)}`}
-        hasSoilTest={!!hasSoilTest}
-        onBack={() => setResult(null)}
-        onClose={onClose}
-      />
-    );
-  }
+  const stepLand = (dir: 1 | -1) => {
+    tap();
+    const next = Math.max(0, Math.round(((n > 0 ? n : 0) + dir * STEP[unit]) * 100) / 100);
+    setLand(next > 0 ? String(next) : '');
+  };
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.head}>
-        <Pressable onPress={onClose} hitSlop={12}>
+        <Pressable onPress={onClose} hitSlop={12} accessibilityLabel={t('scan.close')}>
           <MaterialCommunityIcons name="arrow-left" size={28} color={color.ink} />
         </Pressable>
         <Text style={s.title}>{t('features.fert')}</Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }}
-        contentContainerStyle={{ padding: space.lg, paddingBottom: space.xl, gap: space.xl }}>
-        <Step n={1} icon="map-marker" label={t('fert.location')}>
-          <Select value={state ?? t('fert.pickState')} on={!!state} onPress={() => setPicker('state')} />
-          <TextInput
-            value={district}
-            onChangeText={setDistrict}
-            placeholder={t('fert.districtOptional')}
-            placeholderTextColor={color.inkFaint}
-            style={s.input}
-          />
-        </Step>
-
-        <Step n={2} icon="sprout" label={t('fert.crop')}>
-          <Select
-            value={crop ? cropName(crop) : t('fert.pickCrop')}
-            on={!!crop}
-            onPress={() => setPicker('crop')}
-          />
-          <Chips
-            options={[['KHARIF', t('fert.kharif')], ['RABI', t('fert.rabi')], ['SUMMER', t('fert.summer')]]}
-            value={season}
-            onChange={(v) => setSeason(v as Season)}
-          />
-          <Chips
-            options={[['IRRIGATED', t('fert.irrigated')], ['RAINFED', t('fert.rainfed')]]}
-            value={irrigation}
-            onChange={(v) => setIrrigation(v as Irrigation)}
-          />
-        </Step>
-
-        <Step n={3} icon="ruler-square" label={t('fert.land')}>
-          <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <TextInput
-              value={area}
-              onChangeText={setArea}
-              keyboardType="decimal-pad"
-              placeholder="2.5"
-              placeholderTextColor={color.inkFaint}
-              style={[s.input, { flex: 1 }]}
-            />
+      <ScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxl, gap: space.xl }}
+      >
+        {/* crop */}
+        <View style={{ gap: space.md }}>
+          <Text style={s.label}>{t('fert.crop')}</Text>
+          <View style={s.tiles}>
+            {CROPS.map((c) => {
+              const on = c.key === crop;
+              return (
+                <Pressable
+                  key={c.key}
+                  onPress={() => chooseCrop(c.key)}
+                  style={[s.tile, on && s.tileOn]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                >
+                  <MaterialCommunityIcons name={c.icon as any} size={30} color={on ? color.greenDark : color.inkMuted} />
+                  <Text style={[s.tileText, on && s.tileTextOn]} numberOfLines={1}>{t(`fert.crop_${c.key}`)}</Text>
+                </Pressable>
+              );
+            })}
           </View>
-          <Chips
-            options={(['acre', 'hectare', 'gunta', 'cent'] as AreaUnit[]).map((u) => [u, t(`fert.unit_${u}`)])}
-            value={unit}
-            onChange={(v) => setUnit(v as AreaUnit)}
-          />
-          {area.length > 0 && !areaValid && <Text style={s.bad}>{t('fert.badArea')}</Text>}
-          <Text style={s.note}>{t('fert.bighaNote')}</Text>
-        </Step>
 
-        <Step n={4} icon="flask-outline" label={t('fert.soilTest')}>
-          <Chips
-            options={[['yes', t('fert.haveSoilTest')], ['no', t('fert.noSoilTest')]]}
-            value={hasSoilTest === null ? null : hasSoilTest ? 'yes' : 'no'}
-            onChange={(v) => setHasSoilTest(v === 'yes')}
-          />
-          {hasSoilTest === false && <Text style={s.note}>{t('fert.noSoilTestNote')}</Text>}
-          {hasSoilTest === true && <Text style={s.note}>{t('fert.soilTestPending')}</Text>}
-        </Step>
-      </ScrollView>
-
-      <View style={[s.footer, { paddingBottom: insets.bottom + space.md }]}>
-        <Pressable
-          onPress={calculate}
-          disabled={!ready || busy}
-          style={[s.cta, (!ready || busy) && s.ctaOff]}
-          accessibilityState={{ disabled: !ready || busy }}
-        >
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaText}>{t('fert.calculate')}</Text>}
-        </Pressable>
-      </View>
-
-      <PickerModal
-        visible={picker === 'state'}
-        title={t('fert.pickState')}
-        items={INDIAN_STATES.map((x) => ({ key: x, label: x }))}
-        onPick={(k) => { setState(k); setPicker(null); }}
-        onClose={() => setPicker(null)}
-      />
-      <PickerModal
-        visible={picker === 'crop'}
-        title={t('fert.pickCrop')}
-        items={(crops ?? []).map((c) => ({ key: c.slug, label: cropName(c) }))}
-        onPick={(k) => { setCrop((crops ?? []).find((c) => c.slug === k) ?? null); setPicker(null); }}
-        onClose={() => setPicker(null)}
-      />
-    </View>
-  );
-}
-
-function Step({
-  n, icon, label, children,
-}: { n: number; icon: any; label: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: space.md }}>
-      <View style={s.stepHead}>
-        <View style={s.stepNum}><Text style={s.stepNumText}>{n}</Text></View>
-        <MaterialCommunityIcons name={icon} size={22} color={color.greenDark} />
-        <Text style={s.stepLabel}>{label}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
-
-function Select({ value, on, onPress }: { value: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={s.select} accessibilityRole="button">
-      <Text style={[s.selectText, !on && { color: color.inkFaint }]}>{value}</Text>
-      <MaterialCommunityIcons name="chevron-down" size={22} color={color.inkMuted} />
-    </Pressable>
-  );
-}
-
-function Chips({
-  options, value, onChange,
-}: { options: [string, string][]; value: string | null; onChange: (v: string) => void }) {
-  return (
-    <View style={s.chips}>
-      {options.map(([k, label]) => {
-        const on = k === value;
-        return (
-          <Pressable
-            key={k}
-            onPress={() => onChange(k)}
-            style={[s.chip, on && s.chipOn]}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-          >
-            <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function PickerModal({
-  visible, title, items, onPick, onClose,
-}: {
-  visible: boolean; title: string;
-  items: { key: string; label: string }[];
-  onPick: (k: string) => void; onClose: () => void;
-}) {
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={s.modal}>
-        <View style={s.modalHead}>
-          <Pressable onPress={onClose} hitSlop={12}>
-            <MaterialCommunityIcons name="close" size={26} color={color.ink} />
-          </Pressable>
-          <Text style={s.title}>{title}</Text>
-        </View>
-        <ScrollView>
-          {items.map((it) => (
-            <Pressable key={it.key} onPress={() => onPick(it.key)} style={s.modalRow}>
-              <Text style={s.modalRowText}>{it.label}</Text>
+          {variants.length > 0 && !pickVariant && variant && (
+            <Pressable onPress={() => { tap(); setPickVariant(true); }} style={s.zoneLine} hitSlop={8}>
+              <MaterialCommunityIcons name="map-marker" size={18} color={color.greenDark} />
+              <Text style={s.zoneText}>
+                {t(`fert.zone_${variant}`)}{variant === autoZone ? ` · ${t('fert.fromLocation')}` : ''}
+              </Text>
+              <Text style={s.change}>{t('fert.change')}</Text>
             </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-    </Modal>
+          )}
+          {variants.length > 0 && pickVariant && (
+            <View style={s.chips}>
+              {variants.map((v) => (
+                <Pressable
+                  key={v}
+                  onPress={() => { tap(); setVariant(v); setPickVariant(false); }}
+                  style={[s.chip, v === variant && s.chipOn]}
+                >
+                  <Text style={[s.chipText, v === variant && s.chipTextOn]}>{t(`fert.zone_${v}`)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* land */}
+        <View style={{ gap: space.md }}>
+          <Text style={s.label}>{t('fert.land')}</Text>
+          <View style={s.stepper}>
+            <Pressable onPress={() => stepLand(-1)} style={s.stepBtn} accessibilityLabel="−">
+              <MaterialCommunityIcons name="minus" size={26} color={color.greenDark} />
+            </Pressable>
+            <TextInput
+              value={land}
+              onChangeText={setLand}
+              keyboardType="decimal-pad"
+              selectTextOnFocus
+              style={s.stepValue}
+              accessibilityLabel={t('fert.land')}
+            />
+            <Pressable onPress={() => stepLand(1)} style={s.stepBtn} accessibilityLabel="+">
+              <MaterialCommunityIcons name="plus" size={26} color={color.greenDark} />
+            </Pressable>
+          </View>
+          <View style={s.segment}>
+            {UNITS.map((u) => (
+              <Pressable
+                key={u}
+                onPress={() => { tap(); setUnit(u); }}
+                style={[s.segItem, u === unit && s.segOn]}
+              >
+                <Text style={[s.segText, u === unit && s.segTextOn]}>{t(`fert.unit_${u}`)}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {land.trim().length > 0 && acres == null && <Text style={s.bad}>{t('fert.badArea')}</Text>}
+        </View>
+
+        {/* answer: bags first, because bags are what the farmer buys */}
+        {rec && perAcre && acres != null && (
+          <View style={{ gap: space.md }}>
+            <Text style={s.label}>{t('fert.buyFor', { land: `${land} ${t(`fert.unit_${unit}`)}` })}</Text>
+            <View style={s.bagRow}>
+              {PRODUCTS.filter((p) => perAcre[p.key][1] > 0).map((p) => (
+                <View key={p.key} style={[s.bagCard, { backgroundColor: p.bg }]}>
+                  <Text style={[s.bagName, { color: p.ink }]}>{t(`fert.p_${p.key}`)}</Text>
+                  <Text style={[s.bagCount, { color: p.ink }]}>{bagsFor(perAcre[p.key][1] * acres, p.bag)}</Text>
+                  <Text style={[s.bagUnit, { color: p.ink }]}>{t('fert.bagsOf', { size: p.bag })}</Text>
+                  <Text style={[s.bagKg, { color: p.ink }]}>{kg(perAcre[p.key], acres)}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => { tap(); LayoutAnimation.easeInEaseOut(); setDetails((d) => !d); }}
+              style={s.detailsBtn}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="information-outline" size={20} color={color.inkMuted} />
+              <Text style={s.detailsText}>{t('fert.details')}</Text>
+              <MaterialCommunityIcons name={details ? 'chevron-up' : 'chevron-down'} size={22} color={color.inkMuted} />
+            </Pressable>
+            {details && (
+              <View style={s.detailsBox}>
+                <Text style={s.detailLine}>
+                  {t('fert.perAcre')}: {PRODUCTS.filter((p) => perAcre[p.key][1] > 0)
+                    .map((p) => `${t(`fert.p_${p.key}`)} ${kg(perAcre[p.key])}`).join(' · ')}
+                </Text>
+                <Text style={s.detailLine}>{t('fert.soilTestFirst')}</Text>
+                <Text style={s.detailMuted}>{t('fert.sourceLabel')}: {rec.source}</Text>
+                {!rec.verified && <Text style={s.unverified}>{t('fert.unverified')}</Text>}
+              </View>
+            )}
+          </View>
+        )}
+
+        <Text style={s.detailMuted}>{t('fert.missingCrops')}</Text>
+      </ScrollView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.surface },
+  root: { flex: 1, backgroundColor: color.bg },
   head: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
-  title: { ...type.display, fontSize: 24, color: color.greenDark },
+  title: { ...type.title, color: color.greenDark },
+  label: { ...type.heading, color: color.ink },
 
-  stepHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  stepNum: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: color.greenSoft,
-    alignItems: 'center', justifyContent: 'center',
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  tile: {
+    width: '23%', flexGrow: 1, maxWidth: '25%', minHeight: 84, alignItems: 'center', justifyContent: 'center', gap: 4,
+    borderRadius: radius.md, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface,
   },
-  stepNumText: { ...type.caption, fontWeight: '700', color: color.greenDark },
-  stepLabel: { ...type.heading, color: color.ink },
+  tileOn: { borderWidth: 2, borderColor: color.green, backgroundColor: color.greenSoft },
+  tileText: { ...type.caption, color: color.inkMuted, paddingHorizontal: 2 },
+  tileTextOn: { color: color.greenDark, fontWeight: '700' },
 
-  select: {
-    minHeight: 56, borderWidth: 1.5, borderColor: color.line, borderRadius: radius.md,
-    paddingHorizontal: space.lg, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', backgroundColor: color.bg,
-  },
-  selectText: { ...type.body, color: color.ink },
-  input: {
-    minHeight: 56, borderWidth: 1.5, borderColor: color.line, borderRadius: radius.md,
-    paddingHorizontal: space.lg, ...type.body, color: color.ink, backgroundColor: color.bg,
-  },
-  note: { ...type.caption, color: color.inkMuted },
-  bad: { ...type.caption, color: color.danger },
-
+  zoneLine: { flexDirection: 'row', alignItems: 'center', gap: space.xs, minHeight: 44 },
+  zoneText: { ...type.label, color: color.inkMuted, flexShrink: 1 },
+  change: { ...type.label, color: color.green, fontWeight: '700', marginLeft: space.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: {
     minHeight: 48, paddingHorizontal: space.lg, justifyContent: 'center',
-    borderRadius: radius.pill, borderWidth: 1.5, borderColor: color.line, backgroundColor: color.bg,
+    borderRadius: radius.pill, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface,
   },
   chipOn: { backgroundColor: color.green, borderColor: color.green },
   chipText: { ...type.label, color: color.ink },
   chipTextOn: { color: '#fff', fontWeight: '700' },
 
-  // Normal flex sibling, NOT absolute: an overlaying footer hid step 4 and
-  // swallowed taps meant for the soil-test chips.
-  footer: {
-    padding: space.lg, backgroundColor: color.surface,
-    borderTopWidth: 1, borderTopColor: color.line,
+  stepper: {
+    flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.sm,
+    borderRadius: radius.lg, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface,
   },
-  cta: {
-    minHeight: 60, borderRadius: radius.md, backgroundColor: color.green,
-    alignItems: 'center', justifyContent: 'center',
+  stepBtn: {
+    width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: color.greenSoft,
   },
-  ctaOff: { opacity: 0.4 },
-  ctaText: { ...type.title, color: '#fff' },
+  stepValue: { flex: 1, textAlign: 'center', ...type.display, color: color.ink, padding: 0 },
+  segment: {
+    flexDirection: 'row', padding: 4, borderRadius: radius.md, backgroundColor: color.surfaceAlt,
+  },
+  segItem: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
+  segOn: { backgroundColor: color.surface },
+  segText: { ...type.label, color: color.inkMuted },
+  segTextOn: { color: color.greenDark, fontWeight: '700' },
+  bad: { ...type.caption, color: color.danger },
 
-  modal: { flex: 1, backgroundColor: color.surface, paddingTop: 48 },
-  modalHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
-  modalRow: { minHeight: 60, justifyContent: 'center', paddingHorizontal: space.lg, borderBottomWidth: 1, borderBottomColor: color.line },
-  modalRowText: { ...type.body, color: color.ink },
+  bagRow: { flexDirection: 'row', gap: space.sm },
+  bagCard: { flex: 1, alignItems: 'center', paddingVertical: space.lg, paddingHorizontal: space.xs, borderRadius: radius.lg },
+  bagName: { ...type.label, fontWeight: '700' },
+  bagCount: { fontSize: 40, lineHeight: 46, fontWeight: '700' },
+  bagUnit: { ...type.caption },
+  bagKg: { ...type.caption, marginTop: space.xs, opacity: 0.85 },
+
+  detailsBtn: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 44 },
+  detailsText: { ...type.label, color: color.inkMuted, flex: 1 },
+  detailsBox: {
+    gap: space.sm, padding: space.lg, borderRadius: radius.md,
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+  },
+  detailLine: { ...type.label, color: color.ink },
+  detailMuted: { ...type.caption, color: color.inkMuted },
+  unverified: { ...type.caption, color: color.danger, fontWeight: '700' },
 });

@@ -46,6 +46,12 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { listScans().then(setRecent); initAds(); }, []);
 
+  // Opening the scanner is the moment the camera is needed: ask right away if
+  // never asked. After a "no", the screen below explains and asks on a tap.
+  useEffect(() => {
+    if (perm?.status === 'undetermined' && perm.canAskAgain) requestPerm();
+  }, [perm, requestPerm]);
+
   const onScanned = useCallback(async ({ data }: { data: string }) => {
     if (locked.current) return;
     locked.current = true;
@@ -184,7 +190,11 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
           <Text style={s.sectionTitle}>{t('scan.recent')}</Text>
         </View>
         {recent.length === 0 ? (
-          <Text style={s.none}>{t('scan.none')}</Text>
+          <View style={s.noneBox}>
+            <MaterialCommunityIcons name="qrcode-scan" size={44} color={color.inkFaint} />
+            <Text style={s.noneTitle}>{t('scan.none')}</Text>
+            <Text style={s.none}>{t('scan.noneHint')}</Text>
+          </View>
         ) : (
           recent.slice(0, 5).map((r) => <RecentRow key={r.id} r={r} />)
         )}
@@ -429,7 +439,9 @@ const s = StyleSheet.create({
 
   sectionHead: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md },
   sectionTitle: { ...type.display, fontSize: 22, color: color.ink },
-  none: { ...type.label, color: color.inkMuted, paddingHorizontal: space.lg },
+  noneBox: { alignItems: 'center', gap: space.xs, paddingHorizontal: space.xl, paddingVertical: space.lg },
+  noneTitle: { ...type.bodyStrong, color: color.ink, textAlign: 'center' },
+  none: { ...type.label, color: color.inkMuted, textAlign: 'center' },
 
   recent: {
     flexDirection: 'row', alignItems: 'center', gap: space.md,

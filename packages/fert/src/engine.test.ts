@@ -229,3 +229,14 @@ test('stage shares that do not add to 1 are rejected', () => {
   });
   assert.ok(issues.some((i) => i.problem.includes('not 1')), 'must catch a lost 30%');
 });
+
+test('a schedule that never applies a required nutrient is rejected', () => {
+  const issues = validateRecommendation({
+    crop: 'X', state: 'Y', season: 'Kharif', type: 'GENERAL',
+    perHectare: { n: 100, p2o5: 50, k2o: 0 },
+    source: { organisation: 'O', document: 'D', region: 'R', verifiedOn: '2026-01-01', version: '1' },
+    schedule: [{ stage: 'Basal', share: { n: 0.5 } }, { stage: 'Top', share: { n: 0.5 } }],
+  });
+  assert.ok(issues.some((i) => i.field === 'schedule.share.p2o5'), 'P is required but never scheduled');
+  assert.ok(!issues.some((i) => i.field === 'schedule.share.k2o'), 'K is not required, so no stage is fine');
+});
