@@ -131,7 +131,7 @@ export class QrService {
   private async history(tagId: string) {
     const rows = await this.prisma.qrScan.findMany({
       where: { tagId },
-      select: { villageId: true, scannedAt: true },
+      select: { villageId: true, scannedAt: true, deviceId: true },
       orderBy: { scannedAt: 'asc' },
     });
     const villages = rows.map((r) => r.villageId).filter(Boolean) as string[];
@@ -144,6 +144,8 @@ export class QrService {
     const districtIds = new Set(districts.map((d) => d.parent?.parentId).filter(Boolean));
     return {
       scanCount: rows.length,
+      // A scan without a device id can't be matched to another, so it counts alone.
+      deviceCount: new Set(rows.map((r, i) => r.deviceId ?? `anon-${i}`)).size,
       districtCount: districtIds.size,
       firstScanAt: rows[0]?.scannedAt ?? null,
     };

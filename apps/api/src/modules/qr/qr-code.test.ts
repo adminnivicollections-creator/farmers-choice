@@ -43,17 +43,21 @@ test('revoked beats expired — a recalled batch is not merely stale', () => {
 });
 
 test('one batch across many districts is flagged', () => {
-  assert.deepEqual(suspicion({ districtCount: 3, scanCount: 4, firstScanAt: new Date() }),
+  assert.deepEqual(suspicion({ districtCount: 3, scanCount: 4, deviceCount: 4, firstScanAt: new Date() }),
     { suspicious: true, reason: 'scanned_in_many_districts' });
 });
 
 test('an implausible number of scans is flagged', () => {
-  assert.deepEqual(suspicion({ districtCount: 1, scanCount: 25, firstScanAt: new Date() }),
+  assert.deepEqual(suspicion({ districtCount: 1, scanCount: 25, deviceCount: 25, firstScanAt: new Date() }),
     { suspicious: true, reason: 'scanned_unusually_often' });
 });
 
 test('normal use is not flagged', () => {
-  assert.deepEqual(suspicion({ districtCount: 1, scanCount: 3, firstScanAt: new Date() }),
+  assert.deepEqual(suspicion({ districtCount: 1, scanCount: 3, deviceCount: 3, firstScanAt: new Date() }),
     { suspicious: false });
-  assert.deepEqual(suspicion({ districtCount: 0, scanCount: 0, firstScanAt: null }), { suspicious: false });
+  assert.deepEqual(suspicion({ districtCount: 0, scanCount: 0, deviceCount: 0, firstScanAt: null }), { suspicious: false });
+});
+
+test('one phone scanning the same bag many times is not a copied label', () => {
+  assert.deepEqual(suspicion({ districtCount: 1, scanCount: 60, deviceCount: 1, firstScanAt: new Date() }), { suspicious: false });
 });

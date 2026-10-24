@@ -52,7 +52,13 @@ export function outcomeFor(tag: TagRow | null, now = new Date()): Outcome {
   return 'genuine';
 }
 
-export type ScanHistory = { districtCount: number; scanCount: number; firstScanAt: Date | null };
+export type ScanHistory = {
+  districtCount: number;
+  scanCount: number;
+  /** Distinct phones. One farmer re-scanning a bag is not a copied label. */
+  deviceCount: number;
+  firstScanAt: Date | null;
+};
 
 /**
  * Counterfeit heuristic. A genuine bag of seed is scanned a handful of times,
@@ -68,7 +74,7 @@ export function suspicion(h: ScanHistory): { suspicious: boolean; reason?: strin
   if (h.districtCount >= SUSPICION.districts) {
     return { suspicious: true, reason: 'scanned_in_many_districts' };
   }
-  if (h.scanCount >= SUSPICION.scans) {
+  if (h.deviceCount >= SUSPICION.scans) {
     return { suspicious: true, reason: 'scanned_unusually_often' };
   }
   return { suspicious: false };

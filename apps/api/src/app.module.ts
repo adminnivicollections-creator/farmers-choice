@@ -8,11 +8,15 @@ import { QrModule } from './modules/qr/qr.module';
 import { FertilizerModule } from './modules/fertilizer/fertilizer.module';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
 import { HealthController } from './modules/health/health.controller';
-import { PrismaService } from './prisma.service';
+import { PrismaModule } from './prisma.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
+    PrismaModule,
+    // Per client IP. Sensitive routes tighten this with @Throttle.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AuthModule,
     UsersModule,
     LocationsModule,
@@ -21,6 +25,10 @@ import { PrismaService } from './prisma.service';
   ],
   // Deny by default: every route needs a token unless it says @Public().
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }, PrismaService],
+  // Throttle first, so a flood is turned away before any token check or query.
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}

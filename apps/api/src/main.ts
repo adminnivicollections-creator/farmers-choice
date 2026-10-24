@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 function requireProdSecrets() {
@@ -15,7 +16,9 @@ function requireProdSecrets() {
 
 async function bootstrap() {
   requireProdSecrets();
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Behind Render's proxy: rate limits must see the client's IP, not the proxy's.
+  app.set('trust proxy', 1);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   // The mobile app is not a browser origin, so CORS only matters for the
   // future admin console. Lock it to an allowlist in production.

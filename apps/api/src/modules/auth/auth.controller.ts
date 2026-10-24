@@ -1,4 +1,5 @@
-import { Body, Controller, Ip, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Ip, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/public.decorator';
@@ -12,11 +13,14 @@ class RefreshDto { @IsString() refreshToken: string; }
 export class AuthController {
   constructor(private auth: AuthService) {}
 
+  // Each request can send a paid SMS: tight per-IP limit on top of the per-phone one.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Public() @Post('otp/request')
   request(@Body() dto: RequestOtpDto, @Ip() ip: string) {
     return this.auth.requestOtp(dto.phone, ip);
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public() @Post('otp/verify')
   verify(@Body() dto: VerifyOtpDto) {
     return this.auth.verifyOtp(dto.phone, dto.code);
