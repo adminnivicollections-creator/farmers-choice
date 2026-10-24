@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import AdBanner from '../../components/AdBanner';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,7 +47,7 @@ export default function SavedScreen({
             <Pressable
               hitSlop={12}
               accessibilityLabel={t('land.delete')}
-              onPress={() => deleteMeasurement(item.id).then(setRows)}
+              onPress={() => deleteMeasurement(item.id).then(setRows, () => Alert.alert(t('common.error')))}
               style={s.del}
             >
               <Text style={s.delText}>🗑</Text>

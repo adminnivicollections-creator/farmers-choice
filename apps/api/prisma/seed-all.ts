@@ -1,6 +1,6 @@
 /**
  * One-shot bootstrap for a fresh deployment: PostGIS extensions, locations,
- * crops, fertilizer products, demo QR tags.
+ * crops, fertilizer products.
  *
  * Deliberately does NOT seed nutrient recommendations -- those only enter
  * through the sourced admin workflow.
@@ -15,7 +15,7 @@ async function main() {
   await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS btree_gist');
   console.log('extensions ok');
 
-  for (const script of ['seed.ts', 'seed-fert.ts', 'seed-qr.ts']) {
+  for (const script of ['seed.ts', 'seed-fert.ts']) {
     console.log(`\n--- ${script}`);
     execSync(`npx tsx prisma/${script}`, { stdio: 'inherit' });
   }

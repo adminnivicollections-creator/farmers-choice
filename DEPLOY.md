@@ -52,9 +52,16 @@ From a shell with `DATABASE_URL` set:
 cd apps/api && npx tsx prisma/seed-all.ts
 ```
 
-Loads PostGIS extensions, Andhra Pradesh locations, crops, fertilizer products
-and demo QR tags. It does **not** load nutrient recommendations — those only
-arrive through the sourced admin workflow.
+Loads PostGIS extensions, Andhra Pradesh locations, crops and fertilizer
+products. It does **not** load nutrient recommendations — those only arrive
+through the sourced admin workflow — and it loads no QR tags: a fabricated
+"genuine" batch would mislead anyone who scanned it.
+
+If an earlier deploy ran this when it still seeded demo tags, remove them:
+
+```sql
+delete from "QrTag" where code like 'DEMO%';
+```
 
 ## 4. Point the app at it
 

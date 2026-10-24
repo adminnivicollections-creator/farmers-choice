@@ -82,8 +82,12 @@ export class FertilizerService {
             status: 'PUBLISHED',
             OR: [{ district: input.district ?? null }, { district: null }],
           },
-          // A district-specific row beats a state-wide one.
-          orderBy: [{ district: 'desc' }, { effectiveDate: 'desc' }],
+          // A district-specific row beats a state-wide one. Postgres sorts NULLs
+          // FIRST under DESC, so without nulls:'last' the state row would win.
+          orderBy: [
+            { district: { sort: 'desc', nulls: 'last' } },
+            { effectiveDate: { sort: 'desc', nulls: 'last' } },
+          ],
           include: { source: true, stages: { orderBy: { orderIndex: 'asc' } } },
         })
       : null;

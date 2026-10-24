@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Alert, Linking, Modal, Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import MapView, { MapPressEvent, Marker, Polygon, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -148,7 +148,14 @@ export default function LandScreen({
     const saved = buildSaved(
       name, b.points, mode, mode === 'walk' ? bestAccuracy : (here?.accuracy ?? null), initial ?? undefined,
     );
-    await saveMeasurement(saved);
+    try {
+      await saveMeasurement(saved);
+    } catch {
+      // Storage refused the read or write. Keep the modal and the boundary on
+      // screen so nothing is lost; the farmer can try again.
+      Alert.alert(t('common.error'));
+      return;
+    }
     setNaming(false);
     onOpenSaved();
     // Ads go after value, never before it. The measurement is saved and on

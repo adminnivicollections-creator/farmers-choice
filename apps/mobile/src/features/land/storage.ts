@@ -58,26 +58,34 @@ export function buildSaved(
   };
 }
 
+/**
+ * Throws when storage can't be read. The write paths use this, never the
+ * forgiving list below: writing back an empty list after a failed read would
+ * replace every saved field with one.
+ */
+async function readAll(): Promise<SavedMeasurement[]> {
+  const raw = await AsyncStorage.getItem(KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
 export async function listMeasurements(): Promise<SavedMeasurement[]> {
   try {
-    const raw = await AsyncStorage.getItem(KEY);
-    const rows: SavedMeasurement[] = raw ? JSON.parse(raw) : [];
-    return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return (await readAll()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   } catch {
-    // Corrupt or unreadable storage must not take the feature down.
+    // Corrupt or unreadable storage must not take the screen down.
     return [];
   }
 }
 
 export async function saveMeasurement(m: SavedMeasurement): Promise<SavedMeasurement[]> {
-  const rows = await listMeasurements();
+  const rows = await readAll();
   const next = [m, ...rows.filter((r) => r.id !== m.id)];
   await AsyncStorage.setItem(KEY, JSON.stringify(next));
   return next;
 }
 
 export async function deleteMeasurement(id: string): Promise<SavedMeasurement[]> {
-  const rows = (await listMeasurements()).filter((r) => r.id !== id);
+  const rows = (await readAll()).filter((r) => r.id !== id);
   await AsyncStorage.setItem(KEY, JSON.stringify(rows));
   return rows;
 }

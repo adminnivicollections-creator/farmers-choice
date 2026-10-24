@@ -68,3 +68,10 @@ test('accepts a schedule that sums to 1 per nutrient', () => {
 test('rejects a share outside 0-1', () => {
   assert.ok(problems(row({ stages: [{ stage: 'basal', nShare: 1.4 }] })).some((p) => p.includes('each be 0-1')));
 });
+
+test('refuses a schedule that never applies a required nutrient', () => {
+  // P is required (60 kg/ha) but no stage gives it a share: DAP would vanish
+  // from the timing table.
+  const found = problems(row({ stages: [{ stage: 'basal', nShare: 0.5, k2oShare: 1 }, { stage: 'top', nShare: 0.5 }] }));
+  assert.ok(found.some((p) => p.includes('p2o5Share is required')), found.join('; '));
+});

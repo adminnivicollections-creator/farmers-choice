@@ -150,9 +150,15 @@ export function validate(sources: SourceSeed[], rows: RecSeed[]): Problem[] {
 
     // A split schedule that does not add up would silently under- or over-apply.
     if (r.stages?.length) {
+      const perHa = { nShare: r.nPerHa, p2o5Share: r.p2o5PerHa, k2oShare: r.k2oPerHa };
       for (const n of ['nShare', 'p2o5Share', 'k2oShare'] as const) {
         const parts = r.stages.map((s) => s[n]).filter((v): v is number => v != null);
-        if (!parts.length) continue;
+        if (!parts.length) {
+          // A required nutrient with no stage would vanish from the timing
+          // table, and so would the product that carries it.
+          if (perHa[n] > 0) problems.push({ row: id, problem: `${n} is required but no stage applies it` });
+          continue;
+        }
         if (parts.some((v) => v < 0 || v > 1)) {
           problems.push({ row: id, problem: `${n} values must each be 0-1` });
           continue;
