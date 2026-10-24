@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { LANGS, Lang, setLang } from '../i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { Weather, fetchWeather } from '../lib/weather';
+import { Weather, fetchWeather, rainAlert } from '../lib/weather';
 import { Shimmer, tap } from '../components/feedback';
 
 export type Feature = 'scan' | 'land' | 'fertilizer';
@@ -185,6 +185,36 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
           )}
         </Pressable>
 
+        {/* next 7 days, and a warning when rain is close */}
+        {weather && weather.days.length > 0 && (() => {
+          const dow = t('weather.dow', { returnObjects: true }) as string[];
+          const dayName = (date: string, i: number) =>
+            i === 0 ? t('weather.today') : dow[new Date(`${date}T12:00:00`).getDay()];
+          const alert = rainAlert(weather.days);
+          const alertIdx = alert ? weather.days.indexOf(alert) : -1;
+          return (
+            <View style={s.forecast}>
+              {alert && (
+                <View style={s.alert}>
+                  <MaterialCommunityIcons name="umbrella-outline" size={24} color={color.info} />
+                  <Text style={s.alertText}>
+                    {t('weather.rainAlert', { day: dayName(alert.date, alertIdx), mm: Math.round(alert.rainMm) })}
+                  </Text>
+                </View>
+              )}
+              <View style={s.days}>
+                {weather.days.map((d, i) => (
+                  <View key={d.date} style={s.day}>
+                    <Text style={[s.dayName, i === 0 && s.dayToday]} numberOfLines={1}>{dayName(d.date, i)}</Text>
+                    <MaterialCommunityIcons name={d.icon as any} size={24} color={d.rainMm >= 1 ? color.info : color.star} />
+                    <Text style={s.dayRain}>{d.rainMm >= 1 ? `${Math.round(d.rainMm)} mm` : ' '}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          );
+        })()}
+
         {/* tools: one full-width row each, big targets, no empty grid slots */}
         <View style={s.tools}>
           {TOOLS.map((tool) => (
@@ -249,6 +279,21 @@ const s = StyleSheet.create({
   },
   weatherTemp: { ...type.display, color: color.ink },
   weatherLabel: { ...type.label, color: color.inkMuted },
+
+  forecast: { marginHorizontal: space.lg, marginTop: space.sm, gap: space.sm },
+  alert: {
+    flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md,
+    borderRadius: radius.md, backgroundColor: '#E6F1FB',
+  },
+  alertText: { ...type.label, color: '#0C447C', flex: 1 },
+  days: {
+    flexDirection: 'row', paddingVertical: space.sm, borderRadius: radius.lg,
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+  },
+  day: { flex: 1, alignItems: 'center', gap: 2 },
+  dayName: { ...type.caption, color: color.inkMuted },
+  dayToday: { color: color.greenDark, fontWeight: '700' },
+  dayRain: { fontSize: 11, lineHeight: 14, color: color.info },
 
   tools: { padding: space.lg, gap: space.md },
   tool: {

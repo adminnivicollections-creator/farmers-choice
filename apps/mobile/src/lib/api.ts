@@ -131,7 +131,14 @@ async function raw(path: string, init: RequestInit = {}, token?: string | null) 
     clearTimeout(timer);
   }
   const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    // A waking or failing host answers with an HTML page, not JSON. Say so
+    // instead of surfacing a SyntaxError the screens can't explain.
+    throw new ApiError(res.status, 'The server is not available right now. Try again in a minute.');
+  }
   if (!res.ok) {
     const msg = Array.isArray(body?.message) ? body.message[0] : body?.message;
     throw new ApiError(res.status, msg ?? 'Request failed');

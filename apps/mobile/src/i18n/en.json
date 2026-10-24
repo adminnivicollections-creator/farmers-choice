@@ -221,6 +221,17 @@
     "snow": "Snow",
     "showers": "Showers",
     "snowShowers": "Snow showers",
-    "thunderstorm": "Thunderstorm"
+    "thunderstorm": "Thunderstorm",
+    "dow": [
+      "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat"
+    ],
+    "today": "Today",
+    "rainAlert": "Rain expected {{day}} · {{mm}} mm. Don't spray or apply urea just before it."
   }
 }

@@ -15,7 +15,7 @@ import MeasurementPanel from './MeasurementPanel';
 import { useBoundary } from './useBoundary';
 import { SavedMeasurement, buildSaved, saveMeasurement } from './storage';
 import { showInterstitial } from '../../lib/ads';
-import { getApiBase, pingApi } from '../../lib/api';
+import { hasInternet } from '../../lib/net';
 
 type Mode = 'draw' | 'walk';
 type PermState = 'checking' | 'rationale' | 'granted' | 'denied' | 'blocked';
@@ -62,7 +62,7 @@ export default function LandScreen({
   useEffect(() => {
     if (perm !== 'granted') return;
     let alive = true;
-    pingApi(getApiBase()).then((ok) => {
+    hasInternet().then((ok) => {
       if (!alive) return;
       setOnline(ok);
       // Without tiles the map is a blank void and 'draw' is unusable, so
@@ -300,7 +300,7 @@ export default function LandScreen({
               <Btn
                 label={t('land.save')}
                 onPress={() => setNaming(true)}
-                disabled={b.measurement.pointCount < 3}
+                disabled={b.measurement.pointCount < 3 || b.selfIntersecting}
                 primary
                 small
               />

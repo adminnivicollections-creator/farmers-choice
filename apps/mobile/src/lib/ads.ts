@@ -66,7 +66,9 @@ export async function initAds() {
 export function preload() {
   if (preloaded || loading) return;
   loading = true;
-  const ad = InterstitialAd.createForAdRequest(UNIT_ID, { requestNonPersonalizedAdsOnly: false });
+  // Non-personalised until a consent prompt exists: personalised ads need the
+  // user's consent (DPDP Act, Play policy).
+  const ad = InterstitialAd.createForAdRequest(UNIT_ID, { requestNonPersonalizedAdsOnly: true });
 
   const done = ad.addAdEventListener(AdEventType.LOADED, () => {
     preloaded = ad;
