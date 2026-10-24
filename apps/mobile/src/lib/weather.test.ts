@@ -39,3 +39,9 @@ test('missing data is dropped, not guessed', () => {
   assert.deepEqual(daysFrom(undefined), []);
   assert.equal(daysFrom({ time: ['2026-10-24'], weather_code: [null], precipitation_sum: [3] }).length, 0);
 });
+
+test('heavy rain later in the week is still flagged', () => {
+  const week = { time: ['d0','d1','d2','d3','d4'], weather_code: [51, 51, 3, 81, 95],
+    precipitation_sum: [0.9, 0.1, 0, 6.9, 153], precipitation_probability_max: [38, 29, 4, 51, 71] };
+  assert.equal(rainAlert(daysFrom(week))!.date, 'd4');
+});

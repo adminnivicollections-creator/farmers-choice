@@ -75,8 +75,16 @@ export function daysFrom(d: any): Day[] {
 /** At least this much rain, or this likely, is worth warning about. */
 const RAIN_MM = 5;
 const RAIN_CHANCE = 60;
+/** Heavy rain is worth knowing about all week: harvest, drainage, sowing. */
+const HEAVY_MM = 50;
 
-/** The first rainy day in the next three, if any: the window that matters for spraying and urea. */
+/**
+ * The day to warn about, if any: the first rainy day in the next three (the
+ * window that matters for spraying and urea), else the first heavy-rain day
+ * in the week.
+ */
 export function rainAlert(days: Day[]): Day | null {
-  return days.slice(0, 3).find((d) => d.rainMm >= RAIN_MM || (d.rainChance ?? 0) >= RAIN_CHANCE) ?? null;
+  return days.slice(0, 3).find((d) => d.rainMm >= RAIN_MM || (d.rainChance ?? 0) >= RAIN_CHANCE)
+    ?? days.find((d) => d.rainMm >= HEAVY_MM)
+    ?? null;
 }

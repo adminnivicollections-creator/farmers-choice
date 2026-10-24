@@ -402,3 +402,24 @@ New tests are in `apps/api/src/modules/auth/auth.service.test.ts`. They run agai
 - **Bug fixed:** Android's back button closed the app from every screen. It now returns to Home (`App.tsx` BackHandler).
 - **Fonts:** none added. Android already renders Telugu in Noto Sans Telugu.
 - **Verified on the emulator** (release APK, Telugu): Home, fertilizer flow (paddy, Krishna zone from location, 2 acres gives 3 DAP, 3 urea and 2 MOP bags), details panel, scanner empty state, back button.
+
+### Claude tasks batch (v1.2.0)
+
+| Task | Change | Verified |
+|---|---|---|
+| #6 / M8 | Land screen tests real internet (Google's 204 endpoint), not our API | Emulator: map loads in draw mode, no false "offline" banner |
+| #7 / M6 | Non-JSON error pages become a readable `ApiError` | Type check (module needs react-native to load) |
+| #8 / M12 | Ads are non-personalised (interstitial and banner) | Code |
+| #10 | Release builds no longer allow plain HTTP; debug still does (Metro) | Generated manifests: main 0, debug 1 |
+| #21 / M9 | A crossing boundary can't be saved | Code (warning was already shown) |
+| #23 | Weather coordinates rounded to ~1 km | Unit test, Open-Meteo call |
+| #15 | 7-day strip and rain alert: next 3 days at ≥5 mm or ≥60% chance, or ≥50 mm anywhere in the week | 6 unit tests. Emulator matches Open-Meteo for Guntur: Wed 153 mm alert |
+| #19 / M4 | Rate limits per IP: 120/min overall, 5/min OTP request, 10/min OTP verify, 30/min QR | Boot test: 6th OTP request and 31st QR call get 429 |
+| #19 / M5 | QR "unusually often" counts distinct devices | New unit test |
+| #20 / M1, M2 | One global PrismaModule; `/healthz` returns 503 when the database is down | Boot test; 503 path not exercised (needs the DB stopped) |
+| #22 / M11 | NestJS 11; core and common pinned via overrides | Type check, 43 API tests, boot test |
+| #11, #12 | `docs/privacy-policy.md` and `docs/play-store-listing.md` drafts | Written from the app's actual behaviour; your contact details still needed |
+
+**Still open:**
+- `multer` 2.4.0, pinned by `@nestjs/platform-express`. An npm override didn't take. It's unreachable, since there are no upload routes.
+- Mobile toolchain advisories are build-time only.
