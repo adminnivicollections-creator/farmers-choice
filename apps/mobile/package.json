@@ -20,8 +20,7 @@
     "react-native": "0.86.3",
     "react-native-google-mobile-ads": "^17.2.0",
     "react-native-maps": "1.27.2",
-    "react-native-safe-area-context": "~5.7.0",
-    "undefined": "/private/tmp/claude-501/-Users-apple/9d481e02-63b1-4a6c-adb5-694835305ddd/scratchpad/npm-cache"
+    "react-native-safe-area-context": "~5.7.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
