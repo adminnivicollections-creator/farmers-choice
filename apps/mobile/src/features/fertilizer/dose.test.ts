@@ -41,3 +41,12 @@ test('units and bags', () => {
   assert.equal(bagsFor(91, 45), 3);
   assert.equal(parseNum('2,5'), 2.5);
 });
+
+test('paddy zone is preselected only for districts we are sure of', async () => {
+  const { zoneForDistrict } = await import('./zones');
+  assert.equal(zoneForDistrict('Guntur'), 'krishna');
+  assert.equal(zoneForDistrict('Guntur District'), 'krishna');
+  assert.equal(zoneForDistrict('East Godavari'), 'godavari');
+  assert.equal(zoneForDistrict('Prakasam'), null);   // straddles zones: farmer chooses
+  assert.equal(zoneForDistrict(undefined), null);
+});

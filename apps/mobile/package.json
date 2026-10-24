@@ -10,6 +10,7 @@
     "expo": "~57.0.26",
     "expo-build-properties": "^57.0.22",
     "expo-camera": "~57.0.6",
+    "expo-haptics": "~57.0.3",
     "expo-localization": "~57.0.2",
     "expo-location": "~57.0.20",
     "expo-status-bar": "~57.0.1",
@@ -19,7 +20,8 @@
     "react-native": "0.86.3",
     "react-native-google-mobile-ads": "^17.2.0",
     "react-native-maps": "1.27.2",
-    "react-native-safe-area-context": "~5.7.0"
+    "react-native-safe-area-context": "~5.7.0",
+    "undefined": "/private/tmp/claude-501/-Users-apple/9d481e02-63b1-4a6c-adb5-694835305ddd/scratchpad/npm-cache"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

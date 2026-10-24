@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { color, space, type } from '@fc/tokens';
+import { tap } from './feedback';
 
 export type Tab = 'home' | 'scan' | 'profile';
 
@@ -27,7 +28,7 @@ export default function TabBar({ active, onChange }: { active: Tab; onChange: (t
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
             accessibilityLabel={t(tab.label)}
-            onPress={() => onChange(tab.key)}
+            onPress={() => { tap(); onChange(tab.key); }}
             style={s.item}
           >
             <MaterialCommunityIcons

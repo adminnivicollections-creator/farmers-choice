@@ -387,3 +387,18 @@ New tests are in `apps/api/src/modules/auth/auth.service.test.ts`. They run agai
   - Paddy in the scarce-rainfall zone: 240 kg N looks like a misprint.
   - Bengal gram: the two sources disagree.
 - **Verified on the emulator** (release APK, Telugu): paddy, Krishna zone, 2.5 acres gives DAP 132 kg (3 bags), urea 124–146 kg (4 bags), MOP 67–101 kg (3 bags), matching the unit tests.
+
+### Clean, minimal UI (v1.1.0)
+
+- **Home:** greeting, then one weather card (a loading pulse while it loads, a retry on failure, an "allow location" prompt), then three full-width tool rows, then a compact banner. The empty "irrigation" and "crop health" placeholder cards were removed.
+- **Fertilizer:**
+  - Crops are 8 picture tiles.
+  - The paddy zone is preselected from the phone's district (`zones.ts`, a deliberately partial map), with a "change" link.
+  - Land is set with a − / + stepper (default 1 acre) and a unit segment.
+  - The answer is three colour-coded bag cards. Per-acre doses, source and notes sit behind a "details" toggle.
+- **Empty states** with an icon and a one-line hint: saved fields, scan history.
+- **Feedback:** a light haptic tick on taps (`expo-haptics`).
+- **Icons:** the ✕ and 🗑 characters were replaced with icons.
+- **Bug fixed:** Android's back button closed the app from every screen. It now returns to Home (`App.tsx` BackHandler).
+- **Fonts:** none added. Android already renders Telugu in Noto Sans Telugu.
+- **Verified on the emulator** (release APK, Telugu): Home, fertilizer flow (paddy, Krishna zone from location, 2 acres gives 3 DAP, 3 urea and 2 MOP bags), details panel, scanner empty state, back button.
