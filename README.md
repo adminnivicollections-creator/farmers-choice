@@ -43,15 +43,14 @@ one-to-three week lead time and nothing in code can shortcut it.
 
 ## Known limits
 
-- Location codes below state level are `DEMO-*` placeholders, **not** real LGD
-  codes. Andhra Pradesh's state code (28) is real; everything under it is not.
-  Replace from https://lgdirectory.gov.in before the pilot. AP was reorganised
-  into 26 districts in 2022, so any older district list is wrong. See
-  `apps/api/prisma/seed.ts`.
+- **No locations are seeded.** The village table stays empty until a real
+  LGD import (https://lgdirectory.gov.in, with centroids from the Census
+  village shapefile). AP was reorganised into 26 districts in 2022, so any
+  older district list is wrong. The app's home screen names the place from
+  the phone's own geocoder instead.
 - **No fertilizer recommendations are seeded, by design.** The calculator
   reports "unavailable" until sourced data is loaded through the admin
   workflow. The authority for Andhra Pradesh is ANGRAU.
-- Village centroids are hand-placed, accurate to roughly a kilometre.
 - `npm` workspaces, not pnpm (global pnpm install needed sudo on the dev machine).
 - The server runs under `ts-node`, not `tsx`: esbuild does not implement
   `emitDecoratorMetadata`, which silently breaks every Nest DI constructor.

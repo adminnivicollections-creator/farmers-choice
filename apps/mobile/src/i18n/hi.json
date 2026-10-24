@@ -43,7 +43,8 @@
     "irrigation": "सिंचाई",
     "cropHealth": "फ़सल सेहत",
     "notSetUp": "अभी उपलब्ध नहीं",
-    "noWeather": "जानकारी नहीं"
+    "noWeather": "जानकारी नहीं",
+    "allowLocation": "लोकेशन दें"
   },
   "common": {
     "retry": "फिर कोशिश करें",

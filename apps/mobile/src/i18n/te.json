@@ -43,7 +43,8 @@
     "irrigation": "నీటి పారుదల",
     "cropHealth": "పంట ఆరోగ్యం",
     "notSetUp": "ఇంకా అందుబాటులో లేదు",
-    "noWeather": "సమాచారం లేదు"
+    "noWeather": "సమాచారం లేదు",
+    "allowLocation": "లొకేషన్ ఇవ్వండి"
   },
   "common": {
     "retry": "మళ్లీ ప్రయత్నించండి",

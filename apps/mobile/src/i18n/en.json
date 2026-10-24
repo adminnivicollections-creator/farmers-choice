@@ -43,7 +43,8 @@
     "irrigation": "Irrigation",
     "cropHealth": "Crop health",
     "notSetUp": "Not set up yet",
-    "noWeather": "No data"
+    "noWeather": "No data",
+    "allowLocation": "Allow location"
   },
   "common": {
     "retry": "Try again",

@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
 import { LANGS, Lang, setLang } from '../i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { api } from '../lib/api';
 import { Weather, fetchWeather } from '../lib/weather';
 
 export type Feature = 'scan' | 'land' | 'fertilizer';
+
+const FRESH_FIX_MS = 10 * 60 * 1000;
+const FIX_TIMEOUT_MS = 15_000;
 
 const BANNER = require('../../assets/home-banner.png');
 const LOGO = require('../../assets/logo.png');
@@ -47,23 +49,48 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
   const [weather, setWeather] = useState<Weather | null>(null);
   const [langOpen, setLangOpen] = useState(false);
 
+  /** null until checked. 'blocked' = denied for good; only Settings can fix it. */
+  const [locPerm, setLocPerm] = useState<'granted' | 'denied' | 'blocked' | null>(null);
+
   // Real location and real weather, or nothing. No invented values.
+  const loadPlace = useCallback(async () => {
+    try {
+      // Prefer a fresh fix: an old one may be somewhere the farmer has left.
+      // getCurrentPositionAsync can wait forever indoors or on a cold GPS, so
+      // it is bounded, and an older fix beats a header stuck on a dash.
+      const pos = await Location.getLastKnownPositionAsync({ maxAge: FRESH_FIX_MS })
+        ?? await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), FIX_TIMEOUT_MS)),
+        ])
+        ?? await Location.getLastKnownPositionAsync();
+      if (!pos) return;
+      const { latitude, longitude } = pos.coords;
+      fetchWeather(latitude, longitude).then(setWeather);
+      // The phone's own geocoder names the place: real data, no village table.
+      const [addr] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      setVillage(addr?.city ?? addr?.district ?? addr?.subregion ?? null);
+    } catch { /* no fix or no geocoder; the header shows a dash */ }
+  }, []);
+
+  const applyPerm = useCallback((p: Location.LocationPermissionResponse) => {
+    setLocPerm(p.granted ? 'granted' : p.canAskAgain ? 'denied' : 'blocked');
+    if (p.granted) loadPlace();
+  }, [loadPlace]);
+
+  // Weather is the first thing Home shows, so this is where location is first
+  // needed: ask once, if never asked. After a "no", only a tap asks again.
   useEffect(() => {
     (async () => {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      try {
-        const pos = await Location.getLastKnownPositionAsync()
-          ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!pos) return;
-        const { latitude, longitude } = pos.coords;
-        fetchWeather(latitude, longitude).then(setWeather);
-        api.resolveVillage(latitude, longitude, i18n.language)
-          .then((r: any) => setVillage(r?.village?.name ?? null))
-          .catch(() => {});
-      } catch { /* no fix; header shows the fallback */ }
+      const p = await Location.getForegroundPermissionsAsync();
+      applyPerm(p.status === 'undetermined' ? await Location.requestForegroundPermissionsAsync() : p);
     })();
-  }, [i18n.language]);
+  }, [applyPerm]);
+
+  const askLocation = async () => {
+    if (locPerm === 'blocked') return Linking.openSettings();
+    applyPerm(await Location.requestForegroundPermissionsAsync());
+  };
 
   return (
     <View style={s.root}>
@@ -89,14 +116,21 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
             <Text style={s.langBtnText}>{SHORT[i18n.language as Lang] ?? 'EN'}</Text>
           </Pressable>
 
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <View style={s.metaRow}>
-              <MaterialCommunityIcons name="map-marker" size={16} color={color.greenDark} />
-              <Text style={s.metaText}>{village ?? t('home.setVillage')}</Text>
-            </View>
+          <View style={s.meta}>
+            {locPerm === 'denied' || locPerm === 'blocked' ? (
+              <Pressable onPress={askLocation} hitSlop={8} accessibilityRole="button" style={s.metaRow}>
+                <MaterialCommunityIcons name="map-marker-off-outline" size={16} color={color.greenDark} />
+                <Text style={[s.metaText, s.metaLink]} numberOfLines={2}>{t('home.allowLocation')}</Text>
+              </Pressable>
+            ) : (
+              <View style={s.metaRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={color.greenDark} />
+                <Text style={s.metaText} numberOfLines={1}>{village ?? '—'}</Text>
+              </View>
+            )}
             <View style={s.metaRow}>
               <MaterialCommunityIcons
-                name={weather ? 'weather-sunny' : 'weather-cloudy'}
+                name={(weather?.icon ?? 'weather-cloudy') as any}
                 size={16}
                 color={weather ? color.star : color.inkFaint}
               />
@@ -168,7 +202,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
           contentContainerStyle={s.strip}
         >
           <StatCard
-            icon="weather-sunny"
+            icon={weather?.icon ?? 'weather-cloudy'}
             tint="#EAF3FB"
             iconColor={color.star}
             label={t('home.weather')}
@@ -233,8 +267,11 @@ const s = StyleSheet.create({
   avatar: { width: 52, height: 52, borderRadius: 26 },
   greet: { ...type.label, color: color.greenDark },
   greetName: { ...type.title, fontSize: 24, color: color.greenDark },
+  // Capped so a long place name or label can't squeeze the greeting.
+  meta: { alignItems: 'flex-end', gap: 4, flexShrink: 1, maxWidth: '36%' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { ...type.caption, color: color.inkMuted },
+  metaLink: { color: color.greenDark, fontWeight: '700', textDecorationLine: 'underline' },
 
   banner: {
     marginHorizontal: space.lg, height: 230, borderRadius: radius.lg,

@@ -1,5 +1,5 @@
 /**
- * One-shot bootstrap for a fresh deployment: PostGIS extensions, locations,
+ * One-shot bootstrap for a fresh deployment: PostGIS extensions,
  * crops, fertilizer products.
  *
  * Deliberately does NOT seed nutrient recommendations -- those only enter

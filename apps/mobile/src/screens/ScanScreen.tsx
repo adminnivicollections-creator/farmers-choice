@@ -46,6 +46,12 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
 
   useEffect(() => { listScans().then(setRecent); initAds(); }, []);
 
+  // Opening the scanner is the moment the camera is needed: ask right away if
+  // never asked. After a "no", the screen below explains and asks on a tap.
+  useEffect(() => {
+    if (perm?.status === 'undetermined' && perm.canAskAgain) requestPerm();
+  }, [perm, requestPerm]);
+
   const onScanned = useCallback(async ({ data }: { data: string }) => {
     if (locked.current) return;
     locked.current = true;

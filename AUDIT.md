@@ -354,3 +354,15 @@ New tests are in `apps/api/src/modules/auth/auth.service.test.ts`. They run agai
 - With a key, the config loads.
 
 **Gap:** `npm run build:apk` calls Gradle directly on an existing `android/` folder, so it bypasses this check. Run prebuild with the key first.
+
+### Real data only, and permissions asked when needed
+
+- **No demo villages:** `prisma/seed.ts`, `src/seed/run.ts` and `src/seed/data.ts` no longer create the location tree. Locations come only from a real LGD import. Crops and fertilizer product specs (reference facts) are still seeded. `DEPLOY.md` has SQL to remove demo villages from a database seeded earlier.
+- **Home place name:** comes from the phone's own geocoder (`Location.reverseGeocodeAsync`) instead of the demo village table. Note that the geocoder returns names in the phone's language, not the app's.
+- **Fresh location:** the Home screen prefers a fix newer than 10 minutes and waits up to 15 seconds for one. Only then does it fall back to the last known fix; previously it would wait forever.
+- **Weather icon:** follows the WMO code and day or night (a moon on a clear night) instead of a fixed sun. A clear night is no longer labelled "sunny".
+- **Permissions:**
+  - **Home:** asks for location the first time it opens. After a "no", the header shows a tappable "allow location" link, which opens Settings if the user chose "don't ask again".
+  - **Scanner:** asks for the camera as soon as it opens.
+  - **Land measurement:** keeps its explanation screen before asking.
+- **Verified on the emulator:** the location prompt, the deny path with its link, the grant path showing "Guntur · 27°C clear (moon)" against Open-Meteo's `27.3°C, code 0, is_day 0`, and the camera prompt.
