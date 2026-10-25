@@ -44,13 +44,6 @@ let shownThisSession = 0;
 const MAX_PER_SESSION = 1;
 export const canShowInterstitial = () => shownThisSession < MAX_PER_SESSION;
 
-/**
- * Scans get their own rule: one ad per scan, but never two within this gap.
- * AdMob lists "an interstitial after every user action" as a disallowed
- * placement, and an ad on every rapid re-scan is exactly that.
- */
-const SCAN_AD_GAP_MS = 2 * 60 * 1000;
-let lastShownAt = 0;
 
 /** Never make the farmer wait longer than this for an ad to load. */
 const LOAD_TIMEOUT_MS = 4000;
@@ -110,7 +103,7 @@ export function showInterstitial(opts: { perSessionCap?: boolean } = {}): Promis
     const finish = (how: 'shown' | 'skipped') => {
       if (settled) return;
       settled = true;
-      if (how === 'shown') { shownThisSession++; lastShownAt = Date.now(); }
+      if (how === 'shown') shownThisSession++;
       preload();
       resolve(how);
     };
@@ -144,11 +137,15 @@ export function waitForPreload(): Promise<void> {
 }
 
 /**
- * The ad between a scan and its destination. Resolves when the farmer may
- * continue: after the ad closes, or at once if none is due or ready.
+ * The ad between a scan and its destination, on every scan. Resolves when the
+ * farmer may continue: after the ad closes, or at once if none is ready.
+ *
+ * Product decision (owner accepted the risk): no gap between scan ads, though
+ * AdMob lists "an interstitial after every user action" as disallowed. If the
+ * account gets a policy warning, add a minimum gap here or a frequency cap in
+ * the AdMob console.
  */
 export async function showScanAd(): Promise<'shown' | 'skipped'> {
-  if (Date.now() - lastShownAt < SCAN_AD_GAP_MS) return 'skipped';
   await waitForPreload();
   return showInterstitial({ perSessionCap: false });
 }
