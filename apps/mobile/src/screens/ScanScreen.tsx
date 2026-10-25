@@ -7,40 +7,34 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
-import { getApiBase, api, ApiError, TimeoutError } from '../lib/api';
 import { ScanRecord, addScan, listScans } from '../features/scan/history';
-import { initAds } from '../lib/ads';
+import { initAds, showScanAd } from '../lib/ads';
+import { Scan, ScanKind, describeScan } from '../lib/qr';
+import { tap } from '../components/feedback';
 
-type Foreign = {
-  kind: 'url' | 'upi' | 'phone' | 'email' | 'wifi' | 'geo' | 'text';
-  display: string;
-  openable: boolean;
-  host?: string;
-  suspiciousHost?: boolean;
-  payee?: string;
-  payeeName?: string;
-  amount?: string;
+const ICON: Record<ScanKind, string> = {
+  url: 'web', upi: 'cash', phone: 'phone-outline', email: 'email-outline',
+  wifi: 'wifi', geo: 'map-marker-outline', text: 'text',
+};
+const LABEL: Record<ScanKind, string> = {
+  url: 'scan.f.website', upi: 'scan.f.payment', phone: 'scan.f.phone', email: 'scan.f.email',
+  wifi: 'scan.f.wifi', geo: 'scan.f.place', text: 'scan.f.text',
 };
 
-type Resolved = {
-  outcome: 'genuine' | 'unknown' | 'revoked' | 'expired' | 'not_ours';
-  type?: 'PRODUCT_BATCH' | 'EQUIPMENT';
-  detail?: Record<string, any>;
-  foreign?: Foreign;
-  warning?: { kind: string; message: string };
-};
+const open = (href?: string) => { if (href) Linking.openURL(href).catch(() => {}); };
 
+/**
+ * Scan any QR code, play an ad, then go where the code points: an ordinary
+ * website opens by itself. Payments, phone numbers and lookalike addresses
+ * wait for an explicit tap -- a scanned code is attacker-controlled.
+ */
 export default function ScanScreen({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [perm, requestPerm] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
   const [torch, setTorch] = useState(false);
-  const [result, setResult] = useState<Resolved | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  /** What the camera actually read. Shown even when the lookup fails, so a
-   *  failed scan can be told apart from a failed network. */
-  const [scannedText, setScannedText] = useState<string | null>(null);
+  const [result, setResult] = useState<Scan | null>(null);
   const [recent, setRecent] = useState<ScanRecord[]>([]);
   const locked = useRef(false);
 
@@ -55,38 +49,20 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
   const onScanned = useCallback(async ({ data }: { data: string }) => {
     if (locked.current) return;
     locked.current = true;
+    tap();
+    const scan = describeScan(data);
     setBusy(true);
-    setError(null);
-    setScannedText(data);
-    try {
-      // Resolve FIRST, advertise second. If the lookup fails the farmer sees the
-      // error immediately instead of sitting through an ad for nothing.
-      const r: Resolved = await api.resolveQr(data);
-
-      setResult(r);
-      const title =
-        r.detail?.productName ?? r.detail?.equipmentName ??
-        (r.outcome === 'not_ours' ? t('scan.foreign') : t('scan.unknownItem'));
-      setRecent(await addScan({ title, outcome: r.outcome, type: r.type }));
-    } catch (e) {
-      // Distinguish "server said no" from "could not reach the server at all" --
-      // on a phone the second is far more likely and needs a different fix.
-      setError(
-        e instanceof ApiError
-          ? e.message
-          : `${e instanceof TimeoutError ? t('scan.timeout') : t('scan.offline')} (${getApiBase()})`,
-      );
-      // Unlock so the next scan is possible without leaving the screen.
-      locked.current = false;
-    } finally {
-      setBusy(false);
-    }
+    await showScanAd();   // resolves after the ad closes, or at once if none is due
+    setBusy(false);
+    setResult(scan);
+    if (scan.autoOpen) open(scan.href);
+    const title = scan.host ?? (scan.kind === 'upi' ? (scan.payeeName ?? scan.payee) : undefined) ?? scan.display.slice(0, 60);
+    setRecent(await addScan({ title: title || t(LABEL[scan.kind]), kind: scan.kind, href: scan.href }));
   }, [t]);
 
   const scanAgain = () => {
+    tap();
     setResult(null);
-    setError(null);
-    setScannedText(null);
     locked.current = false;
   };
 
@@ -143,26 +119,15 @@ export default function ScanScreen({ onClose }: { onClose: () => void }) {
           <View style={s.camFoot}>
             <MaterialCommunityIcons name="camera-outline" size={18} color="#fff" />
             <Text style={s.camFootText}>
-              {busy ? t('scan.checking') : t('scan.point')}
+              {busy ? t('scan.adLoading') : t('scan.point')}
             </Text>
           </View>
         </View>
 
         {/* result */}
-        {(result || error) && (
+        {result && (
           <View style={s.resultWrap}>
-            {error ? (
-              <View style={s.errBox}>
-                <Text style={s.error}>{error}</Text>
-                {scannedText && (
-                  <>
-                    <Text style={s.readLabel}>{t('scan.cameraRead')}</Text>
-                    <Text style={s.readValue} selectable numberOfLines={3}>{scannedText}</Text>
-                    <Text style={s.readNote}>{t('scan.cameraOk')}</Text>
-                  </>
-                )}
-              </View>
-            ) : <ResultCard r={result!} />}
+            <ResultCard r={result} />
             <Pressable style={s.primary} onPress={scanAgain}>
               <Text style={s.primaryText}>{t('scan.scanAgain')}</Text>
             </Pressable>
@@ -232,90 +197,46 @@ function Reticle() {
   );
 }
 
-function ResultCard({ r }: { r: Resolved }) {
+/** What the code holds, and the one action that fits it. No verdicts. */
+function ResultCard({ r }: { r: Scan }) {
   const { t } = useTranslation();
-  const good = r.outcome === 'genuine';
-  // A code we did not issue is simply content: neutral styling, no verdict.
-  const plain = r.outcome === 'not_ours' && !!r.foreign;
-  const d = r.detail ?? {};
-  return (
-    <View style={[s.result, plain ? s.resultPlain : good ? s.resultGood : s.resultBad]}>
-      {!plain && (
-        <View style={s.resultHead}>
-          <MaterialCommunityIcons
-            name={good ? 'check-decagram' : 'alert-decagram'}
-            size={26}
-            color={good ? color.green : color.danger}
-          />
-          <Text style={[s.resultBadge, { color: good ? color.greenDark : color.danger }]}>
-            {good ? t('scan.genuine') : t(`scan.${r.outcome}`, { defaultValue: r.outcome })}
-          </Text>
-        </View>
-      )}
-
-      {good && <Text style={s.resultName}>{d.productName ?? d.equipmentName}</Text>}
-      {good && r.type === 'PRODUCT_BATCH' && (
-        <>
-          <Row k="Manufacturer" v={d.manufacturer} />
-          <Row k="Batch" v={d.batchNo} />
-          <Row k="Packed" v={d.packedOn} />
-          <Row k="Pack size" v={d.packSize} />
-          <Row k="Times scanned" v={d.scanCount != null ? String(d.scanCount) : undefined} />
-        </>
-      )}
-      {good && r.type === 'EQUIPMENT' && <Row k="Owner" v={d.ownerName} />}
-      {r.warning && <Text style={s.resultWarn}>{r.warning.message}</Text>}
-      {r.foreign && <ForeignBlock f={r.foreign} />}
-    </View>
-  );
-}
-
-/**
- * A code that is not ours. We show what it holds so the farmer can judge it,
- * and open nothing by ourselves: tapping is always their explicit choice, and
- * only ever for http/https.
- */
-function ForeignBlock({ f }: { f: Foreign }) {
-  const { t } = useTranslation();
-
-  const label = {
-    url: t('scan.f.website'), upi: t('scan.f.payment'), phone: t('scan.f.phone'),
-    email: t('scan.f.email'), wifi: t('scan.f.wifi'), geo: t('scan.f.place'),
-    text: t('scan.f.text'),
-  }[f.kind];
+  const confirmOpen = () =>
+    Alert.alert(t('scan.f.confirmTitle'), t('scan.f.confirmBody', { host: r.host ?? '' }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('scan.f.open'), onPress: () => open(r.href) },
+    ]);
 
   return (
-    <View style={s.foreign}>
-      <Text style={s.foreignKind}>{label}</Text>
+    <View style={s.result}>
+      <View style={s.resultHead}>
+        <MaterialCommunityIcons name={ICON[r.kind] as any} size={22} color={color.greenDark} />
+        <Text style={s.foreignKind}>{t(LABEL[r.kind])}</Text>
+      </View>
 
-      {f.kind === 'upi' ? (
+      {r.kind === 'upi' ? (
         <>
-          <Row k={t('scan.f.payTo')} v={f.payeeName ?? f.payee} />
-          {f.payeeName && f.payee ? <Row k={t('scan.f.upiId')} v={f.payee} /> : null}
-          <Row k={t('scan.f.amount')} v={f.amount ? `₹${f.amount}` : undefined} />
+          <Row k={t('scan.f.payTo')} v={r.payeeName ?? r.payee} />
+          {r.payeeName && r.payee ? <Row k={t('scan.f.upiId')} v={r.payee} /> : null}
+          <Row k={t('scan.f.amount')} v={r.amount ? `₹${r.amount}` : undefined} />
           <Text style={s.foreignDanger}>{t('scan.f.payWarn')}</Text>
         </>
       ) : (
         <>
-          {f.host ? <Text style={s.foreignHost}>{f.host}</Text> : null}
-          <Text style={s.foreignText} numberOfLines={4}>{f.display}</Text>
+          {r.host ? <Text style={s.foreignHost}>{r.host}</Text> : null}
+          <Text style={s.foreignText} numberOfLines={4} selectable>{r.display}</Text>
         </>
       )}
 
-      {f.suspiciousHost && <Text style={s.foreignDanger}>{t('scan.f.lookalike')}</Text>}
+      {r.suspiciousHost && <Text style={s.foreignDanger}>{t('scan.f.lookalike')}</Text>}
+      {r.autoOpen && <Text style={s.opened}>{t('scan.f.opened')}</Text>}
 
-      {f.openable && (
+      {r.href && (
         <Pressable
           style={s.foreignOpen}
-          onPress={() => {
-            Alert.alert(t('scan.f.confirmTitle'), t('scan.f.confirmBody', { host: f.host ?? '' }), [
-              { text: t('common.cancel'), style: 'cancel' },
-              { text: t('scan.f.open'), onPress: () => Linking.openURL(f.display).catch(() => {}) },
-            ]);
-          }}
+          onPress={() => { tap(); r.suspiciousHost ? confirmOpen() : open(r.href); }}
         >
           <MaterialCommunityIcons name="open-in-new" size={18} color={color.greenDark} />
-          <Text style={s.foreignOpenText}>{t('scan.f.openIn')}</Text>
+          <Text style={s.foreignOpenText}>{r.autoOpen ? t('scan.f.openAgain') : t('scan.f.open')}</Text>
         </Pressable>
       )}
     </View>
@@ -332,35 +253,24 @@ function Row({ k, v }: { k: string; v?: string }) {
   );
 }
 
+/** Tap an ordinary website to open it again; anything else just shows. */
 function RecentRow({ r }: { r: ScanRecord }) {
   const { t } = useTranslation();
-  const good = r.outcome === 'genuine';
+  const reopen = r.kind === 'url' && r.href ? () => { tap(); open(r.href); } : undefined;
   return (
-    <View style={s.recent}>
+    <Pressable onPress={reopen} disabled={!reopen} style={({ pressed }) => [s.recent, pressed && reopen && s.recentOn]}>
       <View style={s.recentIcon}>
-        <MaterialCommunityIcons
-          name={r.type === 'EQUIPMENT' ? 'tractor-variant' : 'sprout'}
-          size={24}
-          color={color.greenDark}
-        />
+        <MaterialCommunityIcons name={(r.kind ? ICON[r.kind] : 'qrcode') as any} size={24} color={color.greenDark} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.recentTitle} numberOfLines={1}>{r.title}</Text>
         <Text style={s.recentMeta}>
+          {r.kind ? `${t(LABEL[r.kind])} · ` : ''}
           {new Date(r.at).toLocaleDateString()} · {new Date(r.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
-      <View style={[s.pill, good ? s.pillGood : s.pillBad]}>
-        <MaterialCommunityIcons
-          name={good ? 'check-circle' : 'alert-circle'}
-          size={14}
-          color={good ? color.greenDark : color.danger}
-        />
-        <Text style={[s.pillText, { color: good ? color.greenDark : color.danger }]}>
-          {good ? t('scan.genuine') : r.outcome}
-        </Text>
-      </View>
-    </View>
+      {reopen && <MaterialCommunityIcons name="open-in-new" size={20} color={color.inkFaint} />}
+    </Pressable>
   );
 }
 
@@ -400,7 +310,12 @@ const s = StyleSheet.create({
   br: { bottom: 100, right: 60, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 14 },
 
   resultWrap: { padding: space.lg, gap: space.md },
-  result: { borderRadius: radius.lg, borderWidth: 2, padding: space.lg, gap: space.sm },
+  result: {
+    borderRadius: radius.lg, borderWidth: 1, borderColor: color.line, backgroundColor: color.surface,
+    padding: space.lg, gap: space.sm,
+  },
+  opened: { ...type.caption, color: color.success },
+  recentOn: { borderColor: color.green, backgroundColor: color.greenSoft },
   resultGood: { borderColor: color.green, backgroundColor: color.greenSoft },
   resultBad: { borderColor: color.danger, backgroundColor: '#FBE9E7' },
   resultHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

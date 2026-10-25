@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { ScanKind } from '../../lib/qr';
 
 /** Recent scans, stored on the device. Real history -- never seeded with examples. */
 export type ScanRecord = {
   id: string;
   title: string;
-  outcome: 'genuine' | 'unknown' | 'revoked' | 'expired' | 'not_ours';
-  type?: 'PRODUCT_BATCH' | 'EQUIPMENT';
+  /** What the code held. Missing on records saved by older versions. */
+  kind?: ScanKind;
+  /** What to open again from the list; only for codes that open something. */
+  href?: string;
   at: string;
 };
 

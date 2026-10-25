@@ -84,22 +84,6 @@ export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-const DEVICE = 'fc.device';
-
-/** Random per-install id. Not an account, not tied to a phone number. */
-export async function deviceId(): Promise<string> {
-  try {
-    let id = await AsyncStorage.getItem(DEVICE);
-    if (!id) {
-      id = `d_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-      await AsyncStorage.setItem(DEVICE, id);
-    }
-    return id;
-  } catch {
-    return 'd_unknown';
-  }
-}
-
 /**
  * Without this, a request to an unreachable host hangs for minutes on Android.
  * The screen that fired it looks frozen and never recovers -- which is exactly
@@ -181,7 +165,6 @@ async function auth(path: string, init: RequestInit = {}): Promise<any> {
   }
 }
 
-const raw_ = raw;
 
 export const api = {
   requestOtp: (phone: string) =>
@@ -197,17 +180,6 @@ export const api = {
     raw(`/v1/locations/resolve?lat=${lat}&lng=${lng}&lang=${lang}`),
 
   me: () => auth('/v1/me'),
-
-  /**
-   * Raw scanned string goes to the server; the server decides what it means.
-   * No login -- an anonymous install id is sent so the counterfeit heuristic can
-   * still tell one person scanning twice from two people in two places.
-   */
-  resolveQr: async (raw: string, coords?: { latitude: number; longitude: number }) =>
-    raw_('/v1/qr/resolve', {
-      method: 'POST',
-      body: JSON.stringify({ raw, deviceId: await deviceId(), ...coords }),
-    }),
 
   updateMe: (patch: Record<string, unknown>) =>
     auth('/v1/me', { method: 'PATCH', body: JSON.stringify(patch) }),

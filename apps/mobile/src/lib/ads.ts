@@ -44,6 +44,14 @@ let shownThisSession = 0;
 const MAX_PER_SESSION = 1;
 export const canShowInterstitial = () => shownThisSession < MAX_PER_SESSION;
 
+/**
+ * Scans get their own rule: one ad per scan, but never two within this gap.
+ * AdMob lists "an interstitial after every user action" as a disallowed
+ * placement, and an ad on every rapid re-scan is exactly that.
+ */
+const SCAN_AD_GAP_MS = 2 * 60 * 1000;
+let lastShownAt = 0;
+
 /** Never make the farmer wait longer than this for an ad to load. */
 const LOAD_TIMEOUT_MS = 4000;
 
@@ -88,8 +96,8 @@ export function preload() {
  * Show the ad if one is ready, then resolve. Resolves either way -- the caller
  * navigates to the result as soon as this settles.
  */
-export function showInterstitial(): Promise<'shown' | 'skipped'> {
-  if (!canShowInterstitial()) return Promise.resolve('skipped');
+export function showInterstitial(opts: { perSessionCap?: boolean } = {}): Promise<'shown' | 'skipped'> {
+  if ((opts.perSessionCap ?? true) && !canShowInterstitial()) return Promise.resolve('skipped');
   const ad = preloaded;
   if (!ad) {
     preload(); // warm one for next time
@@ -102,7 +110,7 @@ export function showInterstitial(): Promise<'shown' | 'skipped'> {
     const finish = (how: 'shown' | 'skipped') => {
       if (settled) return;
       settled = true;
-      if (how === 'shown') shownThisSession++;
+      if (how === 'shown') { shownThisSession++; lastShownAt = Date.now(); }
       preload();
       resolve(how);
     };
@@ -110,8 +118,11 @@ export function showInterstitial(): Promise<'shown' | 'skipped'> {
     const closed = ad.addAdEventListener(AdEventType.CLOSED, () => { closed(); finish('shown'); });
     const errored = ad.addAdEventListener(AdEventType.ERROR, () => { errored(); finish('skipped'); });
 
-    // If the ad never opens for any reason, don't strand the farmer.
-    setTimeout(() => finish('skipped'), 15_000);
+    // If the ad never opens for any reason, don't strand the farmer. Once it
+    // HAS opened, wait for CLOSED however long it runs -- resolving early would
+    // send the farmer on while the ad is still on screen.
+    const neverOpened = setTimeout(() => finish('skipped'), 15_000);
+    const opened = ad.addAdEventListener(AdEventType.OPENED, () => { opened(); clearTimeout(neverOpened); });
 
     try { ad.show(); } catch { finish('skipped'); }
   });
@@ -130,4 +141,14 @@ export function waitForPreload(): Promise<void> {
       }
     }, 200);
   });
+}
+
+/**
+ * The ad between a scan and its destination. Resolves when the farmer may
+ * continue: after the ad closes, or at once if none is due or ready.
+ */
+export async function showScanAd(): Promise<'shown' | 'skipped'> {
+  if (Date.now() - lastShownAt < SCAN_AD_GAP_MS) return 'skipped';
+  await waitForPreload();
+  return showInterstitial({ perSessionCap: false });
 }
