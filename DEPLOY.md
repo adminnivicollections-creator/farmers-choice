@@ -37,6 +37,7 @@ Environment:
 | `JWT_SECRET` | 32+ random chars. `openssl rand -hex 32`. Boot fails if it still says `dev-only` |
 | `NODE_ENV` | `production` |
 | `OTP_PROVIDER` | `console` until DLT registration completes |
+| `OPENWEATHER_KEY` | from openweathermap.org → API keys. Powers `/v1/weather`; the app falls back to Open-Meteo without it |
 | `CORS_ORIGINS` | admin console origin, once one exists |
 
 Health check path: `/healthz` — it queries the database, so a green check means

@@ -22,5 +22,7 @@ services:
         generateValue: true    # Render generates a strong one
       - key: OTP_PROVIDER
         value: console         # in production this disables sign-in (503) until msg91 is set up
+      - key: OPENWEATHER_KEY
+        sync: false            # paste from openweathermap.org; server only
       - key: SEED_ON_BOOT
         value: "true"          # set to false after the first successful deploy

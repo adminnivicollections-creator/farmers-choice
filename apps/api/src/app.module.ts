@@ -6,6 +6,7 @@ import { UsersModule } from './modules/users/users.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { QrModule } from './modules/qr/qr.module';
 import { FertilizerModule } from './modules/fertilizer/fertilizer.module';
+import { WeatherModule } from './modules/weather/weather.module';
 import { JwtAuthGuard } from './common/jwt-auth.guard';
 import { HealthController } from './modules/health/health.controller';
 import { PrismaModule } from './prisma.module';
@@ -22,6 +23,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     LocationsModule,
     QrModule,
     FertilizerModule,
+    WeatherModule,
   ],
   // Deny by default: every route needs a token unless it says @Public().
   controllers: [HealthController],

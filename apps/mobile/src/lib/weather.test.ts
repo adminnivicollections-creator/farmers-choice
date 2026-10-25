@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { daysFrom, daysFromOwm, describe, owmToWmo, rainAlert } from './weather';
+import { daysFrom, describe, fromServer, rainAlert } from './weather';
 
 test('the icon follows the real weather, not a fixed sun', () => {
   assert.equal(describe(0, true).icon, 'weather-sunny');
@@ -46,33 +46,19 @@ test('heavy rain later in the week is still flagged', () => {
   assert.equal(rainAlert(daysFrom(week))!.date, 'd4');
 });
 
-test('OpenWeather condition ids map onto the same labels and icons', () => {
-  assert.equal(describe(owmToWmo(800), true).icon, 'weather-sunny');
-  assert.equal(describe(owmToWmo(804), true).labelKey, 'weather.cloudy');
-  assert.equal(describe(owmToWmo(501), true).labelKey, 'weather.rain');
-  assert.equal(describe(owmToWmo(211), true).labelKey, 'weather.thunderstorm');
-  assert.equal(describe(owmToWmo(721), true).labelKey, 'weather.fog');   // haze
+test('server weather gets labels and icons here, in the app language', () => {
+  const w = fromServer({ tempC: 25, code: 3, isDay: true, days: [
+    { date: '2026-10-29', code: 65, rainMm: 72, rainChance: 100 },
+    { date: 'bad' },
+  ] })!;
+  assert.equal(w.labelKey, 'weather.cloudy');
+  assert.equal(w.icon, 'weather-cloudy');
+  assert.deepEqual(w.days, [{ date: '2026-10-29', code: 65, icon: 'weather-rainy', rainMm: 72, rainChance: 100 }]);
 });
 
-test('3-hourly OpenWeather slots become local days with summed rain', () => {
-  const ist = 19800; // +05:30
-  const at = (iso: string) => Date.parse(iso) / 1000 - ist;  // local time -> UTC epoch
-  const fc = { city: { timezone: ist }, list: [
-    { dt: at('2026-10-28T02:00:00Z'), weather: [{ id: 500 }], rain: { '3h': 2.5 }, pop: 0.4 },
-    { dt: at('2026-10-28T23:00:00Z'), weather: [{ id: 211 }], rain: { '3h': 40 }, pop: 0.9 },
-    { dt: at('2026-10-29T01:00:00Z'), weather: [{ id: 800 }], pop: 0 },
-  ] };
-  const days = daysFromOwm(fc);
-  assert.deepEqual(days.map((d) => d.date), ['2026-10-28', '2026-10-29']);
-  assert.equal(days[0].rainMm, 42.5);
-  assert.equal(days[0].rainChance, 90);
-  assert.equal(days[0].icon, 'weather-lightning-rainy');   // worst of the day wins
-  assert.equal(days[1].rainMm, 0);
-});
-
-test('missing or broken forecast gives no days, not invented ones', () => {
-  assert.deepEqual(daysFromOwm(null), []);
-  assert.deepEqual(daysFromOwm({ list: [{ dt: 'x' }] }), []);
+test('an unusable server answer means fall back, not show junk', () => {
+  assert.equal(fromServer(null), null);
+  assert.equal(fromServer({ message: 'Weather is not available right now', statusCode: 503 }), null);
 });
 
 test('heavy rain later beats light likely rain sooner', () => {

@@ -1,8 +1,8 @@
 /**
- * Current conditions and forecast. OpenWeather when a key is configured
- * (Open-Meteo's free tier is non-commercial only, and this app shows ads);
- * Open-Meteo otherwise, and as the fallback when OpenWeather fails, so the
- * card never goes blank because of a key or quota problem.
+ * Current conditions and forecast. Our API first: it calls OpenWeather with a
+ * key that stays on the server (Open-Meteo's free tier is non-commercial only,
+ * and this app shows ads). Open-Meteo directly as the fallback when our server
+ * is asleep or failing, so the card never goes blank.
  * Real data -- the home screen must not show an invented temperature.
  */
 export type Day = { date: string; code: number; icon: string; rainMm: number; rainChance: number | null };
@@ -37,16 +37,18 @@ export function describe(code: number, isDay: boolean): { labelKey: string; icon
 /** A hung request must not leave the card on a spinner forever. */
 const TIMEOUT_MS = 10_000;
 
-const OWM_KEY = process.env.EXPO_PUBLIC_OPENWEATHER_KEY;
-
-export async function fetchWeather(latitude: number, longitude: number): Promise<Weather | null> {
-  return (OWM_KEY ? await fetchOpenWeather(latitude, longitude, OWM_KEY) : null)
+export async function fetchWeather(latitude: number, longitude: number, apiBase: string): Promise<Weather | null> {
+  const lat = latitude.toFixed(2), lon = longitude.toFixed(2);
+  return fromServer(await getJson(`${apiBase}/v1/weather?lat=${lat}&lon=${lon}`, SERVER_TIMEOUT_MS))
     ?? fetchOpenMeteo(latitude, longitude);
 }
 
-async function getJson(url: string): Promise<any | null> {
+/** Short: a sleeping free-tier server takes far longer to wake than a farmer waits. */
+const SERVER_TIMEOUT_MS = 8_000;
+
+async function getJson(url: string, timeoutMs = TIMEOUT_MS): Promise<any | null> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { signal: controller.signal });
     return res.ok ? await res.json() : null;
@@ -57,55 +59,17 @@ async function getJson(url: string): Promise<any | null> {
   }
 }
 
-async function fetchOpenWeather(latitude: number, longitude: number, key: string): Promise<Weather | null> {
-  const q = `lat=${latitude.toFixed(2)}&lon=${longitude.toFixed(2)}&units=metric&appid=${key}`;
-  const [now, fc] = await Promise.all([
-    getJson(`https://api.openweathermap.org/data/2.5/weather?${q}`),
-    getJson(`https://api.openweathermap.org/data/2.5/forecast?${q}`),
-  ]);
-  const t = now?.main?.temp;
-  const id = now?.weather?.[0]?.id;
-  if (typeof t !== 'number' || typeof id !== 'number') return null;
-  const code = owmToWmo(id);
-  const isDay = !String(now.weather[0].icon ?? '').endsWith('n');
-  return { tempC: Math.round(t), code, isDay, ...describe(code, isDay), days: daysFromOwm(fc) };
-}
-
-/** OpenWeather condition id -> the WMO code the rest of the app speaks. */
-export function owmToWmo(id: number): number {
-  if (id >= 200 && id < 300) return 95;          // thunderstorm
-  if (id >= 300 && id < 400) return 53;          // drizzle
-  if (id === 500) return 61;                     // light rain
-  if (id === 501) return 63;                     // moderate rain
-  if (id >= 502 && id <= 511) return 65;         // heavy rain
-  if (id >= 520 && id < 600) return 81;          // showers
-  if (id >= 600 && id < 700) return 71;          // snow / sleet
-  if (id >= 700 && id < 800) return 45;          // mist, haze, fog, dust
-  if (id === 800) return 0;
-  if (id === 801) return 1;
-  if (id === 802) return 2;
-  return 3;                                      // 803/804: cloudy
-}
-
-/** 3-hourly forecast -> one row per local day: rain summed, chance and severity maxed. */
-export function daysFromOwm(fc: any): Day[] {
-  const list: any[] = Array.isArray(fc?.list) ? fc.list : [];
-  const tz = Number(fc?.city?.timezone ?? 0);
-  const byDate = new Map<string, { code: number; rain: number; pop: number }>();
-  for (const e of list) {
-    const id = e?.weather?.[0]?.id;
-    if (typeof e?.dt !== 'number' || typeof id !== 'number') continue;
-    const date = new Date((e.dt + tz) * 1000).toISOString().slice(0, 10);
-    const d = byDate.get(date) ?? { code: 0, rain: 0, pop: 0 };
-    d.code = Math.max(d.code, owmToWmo(id));
-    d.rain += Number(e.rain?.['3h'] ?? 0);
-    d.pop = Math.max(d.pop, Number(e.pop ?? 0));
-    byDate.set(date, d);
-  }
-  return [...byDate].map(([date, d]) => ({
-    date, code: d.code, icon: describe(d.code, true).icon,
-    rainMm: Math.round(d.rain * 10) / 10, rainChance: Math.round(d.pop * 100),
-  }));
+/** Our API's weather (WMO codes, no labels) -> what the screen renders. */
+export function fromServer(j: any): Weather | null {
+  if (typeof j?.tempC !== 'number' || typeof j?.code !== 'number') return null;
+  const isDay = j.isDay !== false;
+  const days: Day[] = (Array.isArray(j.days) ? j.days : [])
+    .filter((d: any) => typeof d?.date === 'string' && typeof d?.code === 'number' && typeof d?.rainMm === 'number')
+    .map((d: any) => ({
+      date: d.date, code: d.code, icon: describe(d.code, true).icon,
+      rainMm: d.rainMm, rainChance: typeof d.rainChance === 'number' ? d.rainChance : null,
+    }));
+  return { tempC: j.tempC, code: j.code, isDay, ...describe(j.code, isDay), days };
 }
 
 async function fetchOpenMeteo(latitude: number, longitude: number): Promise<Weather | null> {

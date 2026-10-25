@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
 import { Weather, fetchWeather, rainAlert } from '../lib/weather';
 import { Shimmer, tap } from '../components/feedback';
+import { getApiBase } from '../lib/api';
 
 export type Feature = 'scan' | 'land' | 'fertilizer';
 
@@ -70,7 +71,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
         ?? await Location.getLastKnownPositionAsync();
       if (!pos) { setWeatherState('failed'); return; }
       const { latitude, longitude } = pos.coords;
-      fetchWeather(latitude, longitude).then((w) => {
+      fetchWeather(latitude, longitude, getApiBase()).then((w) => {
         setWeather(w);
         setWeatherState(w ? 'ok' : 'failed');
       });
