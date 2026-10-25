@@ -142,12 +142,12 @@ const RAIN_CHANCE = 60;
 const HEAVY_MM = 50;
 
 /**
- * The day to warn about, if any: the first rainy day in the next three (the
- * window that matters for spraying and urea), else the first heavy-rain day
- * in the week.
+ * The day to warn about, if any: heavy rain anywhere in the week comes first
+ * (a 72 mm Thursday matters more than a likely 2 mm Tuesday), else the first
+ * rainy day in the next three -- the window that matters for spraying and urea.
  */
 export function rainAlert(days: Day[]): Day | null {
-  return days.slice(0, 3).find((d) => d.rainMm >= RAIN_MM || (d.rainChance ?? 0) >= RAIN_CHANCE)
-    ?? days.find((d) => d.rainMm >= HEAVY_MM)
+  return days.find((d) => d.rainMm >= HEAVY_MM)
+    ?? days.slice(0, 3).find((d) => d.rainMm >= RAIN_MM || (d.rainChance ?? 0) >= RAIN_CHANCE)
     ?? null;
 }

@@ -74,3 +74,15 @@ test('missing or broken forecast gives no days, not invented ones', () => {
   assert.deepEqual(daysFromOwm(null), []);
   assert.deepEqual(daysFromOwm({ list: [{ dt: 'x' }] }), []);
 });
+
+test('heavy rain later beats light likely rain sooner', () => {
+  // OpenWeather, Guntur, 25 Oct: Tue 2 mm at 70%, Thu 72 mm.
+  const days = [
+    { date: 'sun', code: 3, icon: 'weather-cloudy', rainMm: 0, rainChance: 10 },
+    { date: 'mon', code: 3, icon: 'weather-cloudy', rainMm: 0, rainChance: 20 },
+    { date: 'tue', code: 61, icon: 'weather-rainy', rainMm: 2, rainChance: 70 },
+    { date: 'wed', code: 63, icon: 'weather-rainy', rainMm: 11, rainChance: 90 },
+    { date: 'thu', code: 65, icon: 'weather-rainy', rainMm: 72, rainChance: 100 },
+  ];
+  assert.equal(rainAlert(days)!.date, 'thu');
+});
