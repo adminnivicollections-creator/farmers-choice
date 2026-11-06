@@ -4,11 +4,12 @@ import { bagsFor, parseNum, toAcres } from './dose';
 import { RECS, productsPerAcre } from './recommendations';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.5, `${a} vs ${b}`);
+const byKey = (ds: { key: string; perAcre: [number, number] }[]) => Object.fromEntries(ds.map((d) => [d.key, d.perAcre]));
 const rec = (crop: string, variant?: string) => RECS.find((r) => r.crop === crop && r.variant === variant)!;
 
 test('paddy, Krishna zone: per-ha figures become per-acre bags', () => {
   // 80-90 N : 60 P2O5 : 40-60 K2O kg/ha = 32.4-36.4 : 24.3 : 16.2-24.3 kg/acre.
-  const p = productsPerAcre(rec('paddy', 'krishna'));
+  const p = byKey(productsPerAcre(rec('paddy', 'krishna')));
   near(p.dap[0], 52.8);            // 24.3 / 46%
   near(p.urea[0], 49.7);           // (32.4 - 52.8 x 18%) / 46%
   near(p.urea[1], 58.5);           // (36.4 - 52.8 x 18%) / 46%
@@ -16,14 +17,15 @@ test('paddy, Krishna zone: per-ha figures become per-acre bags', () => {
 });
 
 test('per-acre sources are not converted twice', () => {
-  const p = productsPerAcre(rec('sugarcane'));
+  const p = byKey(productsPerAcre(rec('sugarcane')));
   near(p.dap[0], 87.0);            // 40 / 46%
   near(p.urea[0], 111.6);          // (67 - 87 x 18%) / 46%
   near(p.mop[0], 80);              // 48 / 60%
 });
 
-test('no potash recommended means no MOP', () => {
-  assert.deepEqual(productsPerAcre(rec('redgram')).mop, [0, 0]);
+test('no potash means no MOP, and a near-zero urea top-up is dropped', () => {
+  assert.equal(byKey(productsPerAcre(rec('redgram'))).mop, undefined);
+  assert.equal(byKey(productsPerAcre(rec('redgram'))).urea, undefined);
 });
 
 test('every row is sourced and still awaits an agronomist', () => {
@@ -49,4 +51,25 @@ test('paddy zone is preselected only for districts we are sure of', async () => 
   assert.equal(zoneForDistrict('East Godavari'), 'godavari');
   assert.equal(zoneForDistrict('Prakasam'), null);   // straddles zones: farmer chooses
   assert.equal(zoneForDistrict(undefined), null);
+});
+
+test('groundnut uses SSP (no nitrogen in it) plus gypsum, as the source says', () => {
+  const p = byKey(productsPerAcre(rec('groundnut', 'kharif')));
+  assert.equal(p.dap, undefined);
+  near(p.ssp[0], 101.2);           // 40 kg/ha / 2.471 / 16%
+  near(p.urea[0], 17.6);           // 20 kg/ha / 2.471 / 46%, nothing subtracted
+  near(p.gypsum[0], 202.3);        // 500 kg/ha / 2.471
+});
+
+test('split timings add up to the whole dose', () => {
+  for (const r of RECS) for (const d of productsPerAcre(r)) {
+    if (!d.timing) continue;
+    const total = d.timing.reduce((t, s) => t + s.share, 0);
+    assert.ok(Math.abs(total - 1) < 1e-9, `${r.crop} ${r.variant ?? ''} ${d.key}: ${total}`);
+  }
+});
+
+test('cotton urea goes on in two halves at 30 and 60 days', () => {
+  const urea = productsPerAcre(rec('cotton', 'coastalHybrid')).find((d) => d.key === 'urea')!;
+  assert.deepEqual(urea.timing, [{ share: 0.5, days: 30, after: 'sowing' }, { share: 0.5, days: 60, after: 'sowing' }]);
 });

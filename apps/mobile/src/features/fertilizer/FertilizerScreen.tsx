@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
 import { tap } from '../../components/feedback';
 import { LandUnit, bagsFor, parseNum, toAcres } from './dose';
-import { RECS, Range, productsPerAcre } from './recommendations';
+import { ProductDose, RECS, Range, Split, productsPerAcre } from './recommendations';
 import { zoneForDistrict } from './zones';
 import { coarse } from '../../lib/coarse';
 
@@ -26,14 +26,19 @@ const CROPS: { key: string; icon: string }[] = [
   { key: 'blackgram', icon: 'seed' },
   { key: 'sugarcane', icon: 'grass' },
   { key: 'sesame', icon: 'flower-outline' },
+  { key: 'cotton', icon: 'flower-tulip-outline' },
+  { key: 'groundnut', icon: 'peanut-outline' },
+  { key: 'turmeric', icon: 'spa' },
 ].filter((c) => RECS.some((r) => r.crop === c.key));
 
-/** Urea has been sold in 45 kg bags since 2018; DAP and MOP in 50 kg. */
-const PRODUCTS = [
-  { key: 'dap', bag: 50, bg: '#E6F1FB', ink: '#0C447C' },
-  { key: 'urea', bag: 45, bg: '#EAF3DE', ink: '#27500A' },
-  { key: 'mop', bag: 50, bg: '#FAEEDA', ink: '#633806' },
-] as const;
+/** Urea has been sold in 45 kg bags since 2018; the others in 50 kg. */
+const LOOK: Record<ProductDose['key'], { bag: number; bg: string; ink: string }> = {
+  dap: { bag: 50, bg: '#E6F1FB', ink: '#0C447C' },
+  ssp: { bag: 50, bg: '#E6F1FB', ink: '#0C447C' },
+  urea: { bag: 45, bg: '#EAF3DE', ink: '#27500A' },
+  mop: { bag: 50, bg: '#FAEEDA', ink: '#633806' },
+  gypsum: { bag: 50, bg: '#F1EFE8', ink: '#444441' },
+};
 
 const kg = ([lo, hi]: Range, times = 1) => {
   const a = Math.round(lo * times), b = Math.round(hi * times);
@@ -76,6 +81,8 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
   const n = parseNum(land);
   const acres = n > 0 ? toAcres(n, unit) : null;
   const perAcre = rec ? productsPerAcre(rec) : null;
+  const whenLabel = (sp: Split) =>
+    'days' in sp ? t(`fert.at_days_${sp.after}`, { days: sp.days }) : t(`fert.at_${sp.at}`);
 
   const chooseCrop = (c: string) => {
     tap();
@@ -190,13 +197,35 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
           <View style={{ gap: space.md }}>
             <Text style={s.label}>{t('fert.buyFor', { land: `${land} ${t(`fert.unit_${unit}`)}` })}</Text>
             <View style={s.bagRow}>
-              {PRODUCTS.filter((p) => perAcre[p.key][1] > 0).map((p) => (
-                <View key={p.key} style={[s.bagCard, { backgroundColor: p.bg }]}>
-                  <Text style={[s.bagName, { color: p.ink }]}>{t(`fert.p_${p.key}`)}</Text>
-                  <Text style={[s.bagCount, { color: p.ink }]}>{bagsFor(perAcre[p.key][1] * acres, p.bag)}</Text>
-                  <Text style={[s.bagUnit, { color: p.ink }]}>{t('fert.bagsOf', { size: p.bag })}</Text>
-                  <Text style={[s.bagKg, { color: p.ink }]}>{kg(perAcre[p.key], acres)}</Text>
-                </View>
+              {perAcre.map((d) => {
+                const look = LOOK[d.key];
+                return (
+                  <View
+                    key={d.key}
+                    style={[s.bagCard, perAcre.length > 3 && s.bagCardHalf, { backgroundColor: look.bg }]}
+                  >
+                    <Text style={[s.bagName, { color: look.ink }]}>{t(`fert.p_${d.key}`)}</Text>
+                    <Text style={[s.bagCount, { color: look.ink }]}>{bagsFor(d.perAcre[1] * acres, look.bag)}</Text>
+                    <Text style={[s.bagUnit, { color: look.ink }]}>{t('fert.bagsOf', { size: look.bag })}</Text>
+                    <Text style={[s.bagKg, { color: look.ink }]}>{kg(d.perAcre, acres)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* when to apply: only what the source states, in kg for this field */}
+            <View style={s.whenBox}>
+              <View style={s.whenHead}>
+                <MaterialCommunityIcons name="calendar-clock" size={20} color={color.greenDark} />
+                <Text style={s.whenTitle}>{t('fert.whenTitle')}</Text>
+              </View>
+              {perAcre.map((d) => (
+                <Text key={d.key} style={s.whenLine}>
+                  <Text style={s.whenProduct}>{t(`fert.p_${d.key}`)}: </Text>
+                  {d.timing
+                    ? d.timing.map((sp) => `${kg(d.perAcre, acres * sp.share)} ${whenLabel(sp)}`).join(' · ')
+                    : t('fert.timingMissing')}
+                </Text>
               ))}
             </View>
 
@@ -212,8 +241,7 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
             {details && (
               <View style={s.detailsBox}>
                 <Text style={s.detailLine}>
-                  {t('fert.perAcre')}: {PRODUCTS.filter((p) => perAcre[p.key][1] > 0)
-                    .map((p) => `${t(`fert.p_${p.key}`)} ${kg(perAcre[p.key])}`).join(' · ')}
+                  {t('fert.perAcre')}: {perAcre.map((d) => `${t(`fert.p_${d.key}`)} ${kg(d.perAcre)}`).join(' · ')}
                 </Text>
                 <Text style={s.detailLine}>{t('fert.soilTestFirst')}</Text>
                 <Text style={s.detailMuted}>{t('fert.sourceLabel')}: {rec.source}</Text>
@@ -275,13 +303,22 @@ const s = StyleSheet.create({
   segTextOn: { color: color.greenDark, fontWeight: '700' },
   bad: { ...type.caption, color: color.danger },
 
-  bagRow: { flexDirection: 'row', gap: space.sm },
+  bagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  bagCardHalf: { flexBasis: '47%', flexGrow: 1 },
   bagCard: { flex: 1, alignItems: 'center', paddingVertical: space.lg, paddingHorizontal: space.xs, borderRadius: radius.lg },
   bagName: { ...type.label, fontWeight: '700' },
   bagCount: { fontSize: 40, lineHeight: 46, fontWeight: '700' },
   bagUnit: { ...type.caption },
   bagKg: { ...type.caption, marginTop: space.xs, opacity: 0.85 },
 
+  whenBox: {
+    gap: space.sm, padding: space.lg, borderRadius: radius.lg,
+    backgroundColor: color.surface, borderWidth: 1, borderColor: color.line,
+  },
+  whenHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  whenTitle: { ...type.heading, color: color.ink },
+  whenLine: { ...type.label, color: color.ink },
+  whenProduct: { fontWeight: '700', color: color.greenDark },
   detailsBtn: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 44 },
   detailsText: { ...type.label, color: color.inkMuted, flex: 1 },
   detailsBox: {
