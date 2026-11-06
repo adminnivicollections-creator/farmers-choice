@@ -1,9 +1,9 @@
 # Farmer's Choice — Privacy Policy
 
-_Effective date: [date]. Fill in the bracketed parts before publishing._
+_Effective date: 6 November 2026._
 
-Farmer's Choice ("the app") is published by [your name], [city, state, India].
-Contact: [email].
+Farmer's Choice ("the app") is published by S Harsha Vardhan Reddy, Macherla,
+Andhra Pradesh, India. Contact: [vanaisolution@gmail.com](mailto:vanaisolution@gmail.com).
 
 Farmer's Choice is an independent app. It is not affiliated with ANGRAU, ICAR
 or any government body.
@@ -69,4 +69,4 @@ settings. The app keeps working; only the features that need them stop.
 ## Changes
 
 We will update this page and its effective date when the policy changes.
-Questions: [email].
+Questions: [vanaisolution@gmail.com](mailto:vanaisolution@gmail.com).
