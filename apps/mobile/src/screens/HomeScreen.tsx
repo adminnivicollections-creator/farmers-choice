@@ -10,6 +10,7 @@ import { Weather, fetchWeather, rainAlert } from '../lib/weather';
 import { Shimmer, tap } from '../components/feedback';
 import { getApiBase } from '../lib/api';
 import { coarse } from '../lib/coarse';
+import { loadWeather, saveWeather } from '../lib/weatherCache';
 
 export type Feature = 'scan' | 'land' | 'fertilizer';
 
@@ -53,6 +54,8 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
   /** 'failed' offers a retry instead of a silent dash. */
   const [weatherState, setWeatherState] = useState<'loading' | 'ok' | 'failed'>('loading');
   const [langOpen, setLangOpen] = useState(false);
+  /** Set when the weather shown came from the phone's cache, not the network. */
+  const [staleAt, setStaleAt] = useState<number | null>(null);
 
   /** null until checked. 'blocked' = denied for good; only Settings can fix it. */
   const [locPerm, setLocPerm] = useState<'granted' | 'denied' | 'blocked' | null>(null);
@@ -72,17 +75,31 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
           new Promise<null>((resolve) => setTimeout(() => resolve(null), FIX_TIMEOUT_MS)),
         ])
         ?? await Location.getLastKnownPositionAsync();
-      if (!pos) { setWeatherState('failed'); return; }
+      if (!pos) { await showCached(); return; }
       const { latitude, longitude } = pos.coords;
-      fetchWeather(latitude, longitude, getApiBase()).then((w) => {
-        setWeather(w);
-        setWeatherState(w ? 'ok' : 'failed');
-      });
       // The phone's own geocoder names the place: real data, no village table.
-      const [addr] = await Location.reverseGeocodeAsync(coarse({ latitude, longitude }));
-      setVillage(addr?.city ?? addr?.district ?? addr?.subregion ?? null);
-    } catch { setWeatherState((st) => (st === 'ok' ? st : 'failed')); }
+      const place = Location.reverseGeocodeAsync(coarse({ latitude, longitude }))
+        .then(([addr]) => addr?.city ?? addr?.district ?? addr?.subregion ?? null)
+        .catch(() => null);
+      const [w, name] = await Promise.all([fetchWeather(latitude, longitude, getApiBase()), place]);
+      setVillage(name);
+      if (!w) { await showCached(); return; }
+      setWeather(w);
+      setStaleAt(null);
+      setWeatherState('ok');
+      saveWeather(w, name);
+    } catch { await showCached(); }
   }, []);
+
+  /** No fresh weather: the last good one from this phone, if recent, else a retry. */
+  const showCached = async () => {
+    const c = await loadWeather();
+    if (!c) { setWeatherState('failed'); return; }
+    setWeather(c.weather);
+    setVillage((v) => v ?? c.village);
+    setStaleAt(c.at);
+    setWeatherState('ok');
+  };
 
   const applyPerm = useCallback((p: Location.LocationPermissionResponse) => {
     setLocPerm(p.granted ? 'granted' : p.canAskAgain ? 'denied' : 'blocked');
@@ -178,6 +195,11 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
                 <Text style={s.weatherLabel} numberOfLines={1}>
                   {t(weather.labelKey)}{village ? ` · ${village}` : ''}
                 </Text>
+                {staleAt != null && (
+                  <Text style={s.stale}>
+                    {t('home.lastUpdated', { time: new Date(staleAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })}
+                  </Text>
+                )}
               </View>
             </>
           ) : (
@@ -283,6 +305,7 @@ const s = StyleSheet.create({
   },
   weatherTemp: { ...type.display, color: color.ink },
   weatherLabel: { ...type.label, color: color.inkMuted },
+  stale: { ...type.caption, color: color.warning },
 
   forecast: { marginHorizontal: space.lg, marginTop: space.sm, gap: space.sm },
   alert: {

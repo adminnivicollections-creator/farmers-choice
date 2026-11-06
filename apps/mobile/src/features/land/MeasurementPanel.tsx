@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
-  AREA_UNITS, AccuracyBand, AreaUnit, Measurement, formatArea, formatPerimetre, fromSqm, unitLabel,
+  AREA_UNITS, AccuracyBand, AreaUnit, Measurement, formatArea, formatPerimetre, fromSqm,
 } from '@fc/geo';
 import { color, radius, space, type } from '@fc/tokens';
 
@@ -34,22 +34,22 @@ export default function MeasurementPanel({
         <Text style={s.label}>{t('land.area')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${t('land.unit')}: ${unitLabel(unit)}`}
+          accessibilityLabel={`${t('land.unit')}: ${t(`units.${unit}`)}`}
           onPress={() => setPicking(true)}
           style={s.unitBtn}
         >
-          <Text style={s.unitBtnText}>{unitLabel(unit)} ▾</Text>
+          <Text style={s.unitBtnText}>{t(`units.${unit}`)} ▾</Text>
         </Pressable>
       </View>
 
-      <Text style={s.big}>{enough ? formatArea(m.areaSquareMeters, unit) : '—'}</Text>
+      <Text style={s.big}>{enough ? formatArea(m.areaSquareMeters, unit, t(`units.${unit}`)) : '—'}</Text>
 
       {enough && (
         <Text style={s.secondary}>
           {[
-            unit !== 'acre' && `${fromSqm(m.areaSquareMeters, 'acre').toFixed(3)} acres`,
-            unit !== 'cent' && `${fromSqm(m.areaSquareMeters, 'cent').toFixed(1)} cents`,
-            unit !== 'gunta' && `${fromSqm(m.areaSquareMeters, 'gunta').toFixed(1)} guntas`,
+            unit !== 'acre' && `${fromSqm(m.areaSquareMeters, 'acre').toFixed(3)} ${t('units.acre')}`,
+            unit !== 'cent' && `${fromSqm(m.areaSquareMeters, 'cent').toFixed(1)} ${t('units.cent')}`,
+            unit !== 'gunta' && `${fromSqm(m.areaSquareMeters, 'gunta').toFixed(1)} ${t('units.gunta')}`,
           ].filter(Boolean).join('  ·  ')}
         </Text>
       )}
@@ -83,7 +83,7 @@ export default function MeasurementPanel({
                 onPress={() => { onUnitChange(u); setPicking(false); }}
                 style={[s.menuRow, u === unit && s.menuRowOn]}
               >
-                <Text style={[s.menuText, u === unit && s.menuTextOn]}>{unitLabel(u)}</Text>
+                <Text style={[s.menuText, u === unit && s.menuTextOn]}>{t(`units.${u}`)}</Text>
                 <Text style={s.menuValue}>
                   {fromSqm(m.areaSquareMeters, u).toLocaleString(undefined, { maximumFractionDigits: 3 })}
                 </Text>

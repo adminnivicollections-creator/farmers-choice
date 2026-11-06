@@ -45,7 +45,8 @@
     "notSetUp": "Not set up yet",
     "noWeather": "No data",
     "allowLocation": "Allow location",
-    "weatherFailed": "Couldn't load the weather. Tap to try again."
+    "weatherFailed": "Couldn't load the weather. Tap to try again.",
+    "lastUpdated": "No signal · last updated {{time}}"
   },
   "common": {
     "retry": "Try again",
@@ -246,5 +247,13 @@
     ],
     "today": "Today",
     "rainAlert": "Rain expected {{day}} · {{mm}} mm. Don't spray or apply urea just before it."
+  },
+  "units": {
+    "sqft": "sq.ft",
+    "sqm": "sq.m",
+    "acre": "acres",
+    "cent": "cents",
+    "hectare": "ha",
+    "gunta": "guntas"
   }
 }

@@ -63,7 +63,8 @@ export function unitLabel(unit: AreaUnit): string {
 }
 
 /** "12,540 sq.ft" — grouped with Indian digit separators where available. */
-export function formatArea(areaSqm: number, unit: AreaUnit, locale = 'en-IN'): string {
+/** `label` lets the app pass the unit name in the farmer's language. */
+export function formatArea(areaSqm: number, unit: AreaUnit, label = SHORT[unit], locale = 'en-IN'): string {
   const v = fromSqm(areaSqm, unit);
   const d = DECIMALS[unit];
   let num: string;
@@ -72,7 +73,7 @@ export function formatArea(areaSqm: number, unit: AreaUnit, locale = 'en-IN'): s
   } catch {
     num = v.toFixed(d); // Hermes ships a trimmed Intl; never let formatting throw
   }
-  return `${num} ${SHORT[unit]}`;
+  return `${num} ${label}`;
 }
 
 export function formatPerimetre(metres: number, imperial: boolean): string {

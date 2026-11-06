@@ -45,9 +45,9 @@ export default function SavedScreen({
           <Pressable onPress={() => { tap(); onOpen(item); }} style={({ pressed }) => [s.card, pressed && s.cardOn]}>
             <View style={{ flex: 1 }}>
               <Text style={s.name}>{item.name}</Text>
-              <Text style={s.area}>{formatArea(item.areaSquareMeters, 'acre')}</Text>
+              <Text style={s.area}>{formatArea(item.areaSquareMeters, 'acre', t('units.acre'))}</Text>
               <Text style={s.meta}>
-                {formatArea(item.areaSquareMeters, 'sqft')} · {item.cents.toFixed(1)} cents
+                {formatArea(item.areaSquareMeters, 'sqft', t('units.sqft'))} · {item.cents.toFixed(1)} {t('units.cent')}
               </Text>
               <Text style={s.date}>
                 {new Date(item.createdAt).toLocaleDateString()} · {t(`land.${item.method}`)}
