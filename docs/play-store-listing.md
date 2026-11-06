@@ -1,63 +1,50 @@
-# Play Store listing — draft
+# Play Store listing
 
-## App name
+## App name (30 characters max)
 Farmer's Choice
 
 ## Short description (80 characters max)
-Fertilizer bags for your crop, rain forecast, land measure and QR check.
+Fertilizer bags for your crop, rain alerts, land measurement and QR scanner.
 
 ## Full description
 
 **English**
 
 Farmer's Choice helps Andhra Pradesh farmers with everyday decisions, in Telugu,
-Hindi or English.
+Hindi or English. No sign-up needed.
 
-- **Fertilizer calculator:** pick your crop and enter your land. See how many
-  bags of DAP, urea and MOP to buy, using official ANGRAU and ICAR
-  recommendations.
-- **Weather and rain alert:** today's weather and the next 7 days for your
-  village, with a warning when rain is close, so you don't spray or apply urea
-  just before it.
-- **Land measurement:** walk around your field or draw it on the map, and get
-  the area in acres, guntas and cents.
-- **QR scan:** see what a QR code holds before you act on it. The app never
-  opens links by itself.
+• Fertilizer calculator — pick your crop and enter your land. See how many bags
+of DAP, urea and MOP to buy, using figures published by ANGRAU and ICAR.
+• Weather and rain alerts — today's weather and the coming days for your
+village, with a warning when heavy rain is coming, so you don't spray or apply
+urea just before it.
+• Land measurement — walk around your field or draw it on the map, and get the
+area in acres, guntas and cents.
+• QR scanner — scan any QR code and open it. Payment and fake-looking links are
+shown first so you can check them.
 
-Works on low-end phones. No sign-up needed.
+Farmer's Choice is an independent app. It is not affiliated with ANGRAU, ICAR or
+any government body. Always follow your soil test card and your agriculture
+officer's advice.
 
 **తెలుగు**
 
-ఫార్మర్స్ ఛాయిస్ ఆంధ్రప్రదేశ్ రైతులకు రోజువారీ నిర్ణయాల్లో సహాయపడుతుంది.
+ఫార్మర్స్ ఛాయిస్ ఆంధ్రప్రదేశ్ రైతులకు రోజువారీ నిర్ణయాల్లో సహాయపడుతుంది —
+తెలుగు, హిందీ, ఇంగ్లీష్‌లో. సైన్ అప్ అవసరం లేదు.
 
-- **ఎరువుల లెక్క:** పంట ఎంచుకుని, భూమి నమోదు చేయండి. ఎన్ని బస్తాల డీఏపీ,
-  యూరియా, ఎంఓపీ కొనాలో చూడండి — ANGRAU, ICAR అధికారిక సిఫార్సుల ప్రకారం.
-- **వాతావరణం, వర్ష హెచ్చరిక:** మీ ఊరి ఈరోజు వాతావరణం, 7 రోజుల సూచన.
-  వర్షం దగ్గర పడితే హెచ్చరిక.
-- **భూమి కొలత:** పొలం చుట్టూ నడిచి లేదా మ్యాప్‌పై గీసి — ఎకరాలు, గుంటలు,
-  సెంట్లలో విస్తీర్ణం.
-- **QR స్కాన్:** QR కోడ్‌లో ఏముందో చూడండి. లింక్‌ను యాప్ తానుగా తెరవదు.
+• ఎరువుల లెక్క — పంట ఎంచుకుని, భూమి నమోదు చేయండి. ఎన్ని బస్తాల డీఏపీ,
+యూరియా, ఎంఓపీ కొనాలో చూడండి — ANGRAU, ICAR ప్రచురించిన సంఖ్యల ప్రకారం.
+• వాతావరణం, వర్ష హెచ్చరిక — మీ ఊరి వాతావరణం, రాబోయే రోజుల సూచన. భారీ వర్షం
+వస్తుంటే హెచ్చరిక.
+• భూమి కొలత — పొలం చుట్టూ నడిచి లేదా మ్యాప్‌పై గీసి — ఎకరాలు, గుంటలు,
+సెంట్లలో విస్తీర్ణం.
+• QR స్కాన్ — ఏ QR కోడ్‌నైనా స్కాన్ చేసి తెరవండి. చెల్లింపు, నకిలీ లింక్‌లను
+ముందుగా చూపిస్తుంది.
 
-సైన్ అప్ అవసరం లేదు.
+ఫార్మర్స్ ఛాయిస్ స్వతంత్ర యాప్. ANGRAU, ICAR లేదా ఏ ప్రభుత్వ సంస్థతోనూ
+సంబంధం లేదు. మీ మట్టి పరీక్ష కార్డు, వ్యవసాయ అధికారి సలహాను పాటించండి.
 
-## Category
-Tools (or Productivity)
-
-## Data safety form — answers
-
-| Question | Answer |
-|---|---|
-| Does the app collect or share user data? | Yes |
-| Location — approximate and precise | **Collected and shared.** Purpose: app functionality (weather, place name). Shared with Open-Meteo (rounded) and Google (place name). Not stored by us. Optional (user can deny). |
-| Device or other IDs | **Collected.** A random install ID sent with QR lookups (fraud prevention: copied labels). AdMob collects the advertising ID (advertising). |
-| App activity — other actions | **Collected.** QR scan text and result (app functionality, fraud prevention). |
-| Is data encrypted in transit? | Yes (HTTPS only; cleartext is off in release builds). |
-| Can users request deletion? | Yes, by email (see privacy policy). |
-| Personal info (name, phone, email) | Not collected. |
-| Photos, files, contacts, messages | Not collected. |
-
-## Screenshots to take (phone, Telugu)
-1. Home with weather and the 7-day strip
-2. Fertilizer: paddy, 2 acres, bag cards
-3. Land measurement with a drawn field
-4. QR scan result
+## Graphics (in `docs/store/`)
+- `icon-512.png` — app icon, 512×512
+- `feature-graphic.png` — 1024×500
+- `screenshots/` — phone screenshots, 1080×1920, Telugu

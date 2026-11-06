@@ -9,6 +9,7 @@ import { color, radius, space, type } from '@fc/tokens';
 import { Weather, fetchWeather, rainAlert } from '../lib/weather';
 import { Shimmer, tap } from '../components/feedback';
 import { getApiBase } from '../lib/api';
+import { coarse } from '../lib/coarse';
 
 export type Feature = 'scan' | 'land' | 'fertilizer';
 
@@ -65,7 +66,9 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
       // it is bounded, and an older fix beats a header stuck on a dash.
       const pos = await Location.getLastKnownPositionAsync({ maxAge: FRESH_FIX_MS })
         ?? await Promise.race([
-          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+          // No 'turn on Location Accuracy' system prompt on every launch: a ~1 km
+          // fix is all the weather needs.
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, mayShowUserSettingsDialog: false }),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), FIX_TIMEOUT_MS)),
         ])
         ?? await Location.getLastKnownPositionAsync();
@@ -76,7 +79,7 @@ export default function HomeScreen({ onOpen }: { onOpen: (f: Feature) => void })
         setWeatherState(w ? 'ok' : 'failed');
       });
       // The phone's own geocoder names the place: real data, no village table.
-      const [addr] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const [addr] = await Location.reverseGeocodeAsync(coarse({ latitude, longitude }));
       setVillage(addr?.city ?? addr?.district ?? addr?.subregion ?? null);
     } catch { setWeatherState((st) => (st === 'ok' ? st : 'failed')); }
   }, []);

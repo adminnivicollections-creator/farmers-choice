@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color, radius, space, type } from '@fc/tokens';
 import { API_BASE_DEFAULT, getApiBase, pingApi, setApiBase } from '../lib/api';
 import { LANGS, Lang, setLang } from '../i18n';
+import { PRIVACY_URL } from '../lib/links';
+
+const VERSION: string = require('../../app.json').expo.version;
 
 /** Settings, including the server address so testing on a handset does not
  *  require a new build every time the laptop changes network. */
@@ -33,7 +36,7 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         <Text style={s.title}>{t('tabs.profile')}</Text>
       </View>
 
-      <View style={{ padding: space.lg, gap: space.lg }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
         <Text style={s.label}>{t('settings.language')}</Text>
         <View style={s.row}>
           {LANGS.map((l) => (
@@ -70,7 +73,20 @@ export default function SettingsScreen({ onClose }: { onClose: () => void }) {
         {state === 'ok' && <Text style={s.ok}>{t('settings.reachable')}</Text>}
         {state === 'bad' && <Text style={s.bad}>{t('settings.unreachable')}</Text>}
         </>}
-      </View>
+
+        {/* about: required credits, and the not-a-government-app disclosure */}
+        <View style={s.about}>
+          <Text style={s.label}>{t('settings.about')}</Text>
+          <Text style={s.aboutText}>{t('settings.disclaimer')}</Text>
+          <Text style={s.hint}>{t('settings.sources')}</Text>
+          {PRIVACY_URL ? (
+            <Pressable onPress={() => Linking.openURL(PRIVACY_URL).catch(() => {})} hitSlop={8}>
+              <Text style={s.link}>{t('settings.privacy')}</Text>
+            </Pressable>
+          ) : null}
+          <Text style={s.hint}>{t('settings.version', { v: VERSION })}</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -93,6 +109,12 @@ const s = StyleSheet.create({
     paddingHorizontal: space.lg, ...type.body, color: color.ink, backgroundColor: color.bg,
   },
   hint: { ...type.caption, color: color.inkMuted },
+  about: {
+    gap: space.sm, padding: space.lg, borderRadius: radius.lg,
+    backgroundColor: color.bg, borderWidth: 1, borderColor: color.line,
+  },
+  aboutText: { ...type.label, color: color.ink },
+  link: { ...type.label, color: color.green, fontWeight: '700', textDecorationLine: 'underline' },
   btn: {
     minHeight: 56, borderRadius: radius.md, backgroundColor: color.green,
     alignItems: 'center', justifyContent: 'center',

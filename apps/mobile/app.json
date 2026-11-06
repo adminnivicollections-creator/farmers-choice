@@ -2,7 +2,7 @@
   "expo": {
     "name": "Farmer's Choice",
     "slug": "farmers-choice",
-    "version": "1.3.1",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "versionCode": 10
+      "versionCode": 11,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,7 +32,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Farmer's Choice uses the camera to scan QR codes on seed packets and equipment."
+          "cameraPermission": "Farmer's Choice uses the camera to scan QR codes on seed packets and equipment.",
+          "recordAudioAndroidPermission": false,
+          "microphonePermission": false
         }
       ],
       [
@@ -35,7 +43,9 @@
           "androidAppId": "ca-app-pub-3137982750312922~2893629284"
         }
       ],
-      "./plugins/withAndroidCompileSdkFix"
+      "./plugins/withAndroidCompileSdkFix",
+      "./plugins/withReleaseSigning",
+      "./plugins/withoutBackgroundLocation"
     ],
     "splash": {
       "image": "./assets/splash-icon.png",

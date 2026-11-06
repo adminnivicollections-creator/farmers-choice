@@ -11,6 +11,7 @@ import { tap } from '../../components/feedback';
 import { LandUnit, bagsFor, parseNum, toAcres } from './dose';
 import { RECS, Range, productsPerAcre } from './recommendations';
 import { zoneForDistrict } from './zones';
+import { coarse } from '../../lib/coarse';
 
 const UNITS: LandUnit[] = ['acre', 'gunta', 'cent', 'hectare'];
 /** One tap of − / + in each unit. */
@@ -64,7 +65,7 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
         if (!(await Location.getForegroundPermissionsAsync()).granted) return;
         const pos = await Location.getLastKnownPositionAsync();
         if (!pos) return;
-        const [addr] = await Location.reverseGeocodeAsync(pos.coords);
+        const [addr] = await Location.reverseGeocodeAsync(coarse(pos.coords));
         setAutoZone(zoneForDistrict(addr?.subregion) ?? zoneForDistrict(addr?.city));
       } catch { /* the farmer picks the zone instead */ }
     })();
@@ -217,6 +218,7 @@ export default function FertilizerScreen({ onClose }: { onClose: () => void }) {
                 <Text style={s.detailLine}>{t('fert.soilTestFirst')}</Text>
                 <Text style={s.detailMuted}>{t('fert.sourceLabel')}: {rec.source}</Text>
                 {!rec.verified && <Text style={s.unverified}>{t('fert.unverified')}</Text>}
+                <Text style={s.detailMuted}>{t('fert.notAffiliated')}</Text>
               </View>
             )}
           </View>

@@ -193,7 +193,8 @@
     "change": "Change",
     "buyFor": "Buy for {{land}}",
     "bagsOf": "bags of {{size}} kg",
-    "details": "Per acre, source and notes"
+    "details": "Per acre, source and notes",
+    "notAffiliated": "Not affiliated with ANGRAU, ICAR or the government. Figures copied from their published documents."
   },
   "settings": {
     "language": "Language",
@@ -202,7 +203,12 @@
     "checking": "Checking…",
     "reachable": "Server reachable ✓",
     "unreachable": "Could not reach the server ✗",
-    "serverHint": "Default: {{base}}"
+    "serverHint": "Default: {{base}}",
+    "about": "About",
+    "disclaimer": "Farmer's Choice is an independent app. It is not affiliated with ANGRAU, ICAR or any government body. Fertilizer figures are copied from their published documents; if you have a soil test card or advice from your agriculture officer, follow that.",
+    "sources": "Weather: OpenWeather and Open-Meteo (CC BY 4.0). Place names: Google. Fertilizer: ANGRAU Vyavasaya Panchangam, ICAR Kharif Agro-Advisory 2025.",
+    "privacy": "Privacy policy",
+    "version": "Version {{v}}"
   },
   "weather": {
     "clear": "Clear",
