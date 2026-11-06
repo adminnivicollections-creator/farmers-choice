@@ -4,9 +4,13 @@ Everything below is ready except the items marked **You**.
 
 ## 0. Before you start (You)
 - Personal Play developer account created and identity verified.
-- Privacy policy published at a public URL (`docs/privacy-policy.html`, with
-  your name, city, email and date filled in). Then set `PRIVACY_URL` in
-  `apps/mobile/src/lib/links.ts` and rebuild, so the app links to it too.
+- ✅ Privacy policy is live at **https://farmers-choice-privacy.vercel.app**
+  (Vercel project `farmers-choice-privacy`, team `nanis-projects-377b5c6b`) and
+  linked from the app (Profile → About). To change it: edit
+  `docs/privacy-policy.md`, run `python3 tools/privacy-html.py`, copy
+  `docs/privacy-policy.html` to an empty folder named `farmers-choice-privacy`
+  as `index.html`, and run there:
+  `vercel deploy --prod --yes --scope nanis-projects-377b5c6b`.
 - 12 testers' Gmail addresses (personal accounts must run a closed test with
   12+ testers opted in for 14 days before production).
 - Production API deployed (PR #1 merged, `OPENWEATHER_KEY` set on Render).
@@ -49,7 +53,7 @@ be uploaded by mistake. Every upload needs a higher `versionCode` in
 ## 4. App content (Policy → App content)
 | Section | Answer |
 |---|---|
-| Privacy policy | Your public URL |
+| Privacy policy | https://farmers-choice-privacy.vercel.app |
 | App access | All functionality is available without special access (no login) |
 | Ads | **Yes, my app contains ads** |
 | Content rating | Fill the questionnaire: category **Reference, News, or Educational** (or "All other app types"); answer **No** to violence, sexual content, drugs, gambling, user-generated content and sharing location with other users. Expected rating: Everyone / 3+ |
@@ -81,7 +85,7 @@ https://developers.google.com/admob/android/privacy/play-data-disclosure
 ## 5. Store listing (Grow → Store presence → Main store listing)
 Copy from `docs/play-store-listing.md`; upload `docs/store/icon-512.png`,
 `docs/store/feature-graphic.png` and the screenshots in `docs/store/screenshots/`.
-Category: **Productivity** (or Tools). Contact email: yours.
+Category: **Productivity** (or Tools). Contact email: vanaisolution@gmail.com.
 
 ## 6. Closed testing (Test and release → Testing → Closed testing)
 1. Create a track (e.g. "Pilot"), add testers by email list (12+).
